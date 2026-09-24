@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Logistic Regression Reference & Formula Sheet</title>
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.5;
+      color: #1e293b;
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 0 1.5rem;
+      background: #f8fafc;
+    }
+    .card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    h1, h2, h3 { color: #0f172a; margin-top: 0; }
+    h1 { border-bottom: 2px solid #cbd5e1; padding-bottom: 0.5rem; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+    th, td { padding: 0.5rem 0.75rem; border: 1px solid #e2e8f0; text-align: left; }
+    th { background: #f1f5f9; font-weight: 600; }
+    code { background: #f1f5f9; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.9em; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .highlight { background: #eff6ff; border-left: 4px solid #3b82f6; padding: 0.75rem 1rem; margin: 1rem 0; }
+  </style>
+</head>
+<body>
+  <h1>Regularized Logistic Regression Reference Cheat Sheet</h1>
+
+  <div class="card">
+    <h2>1. Mathematical Formulas</h2>
+    <p><strong>Log-Odds (Logit):</strong></p>
+    $$z = w^T x + b = \sum_{j=1}^d w_j x_j + b$$
+    <p><strong>Sigmoid Hypothesis:</strong></p>
+    $$p = P(y=1|x) = \sigma(z) = \frac{1}{1 + e^{-z}}$$
+    <p><strong>L2-Regularized Binary Cross-Entropy (Scikit-Learn Objective):</strong></p>
+    $$\min_{w, b} \left\{ \sum_{i=1}^n \left[ -y_i \ln(p_i) - (1 - y_i) \ln(1 - p_i) \right] + \frac{1}{2C} \sum_{j=1}^d w_j^2 \right\}$$
+    <p><strong>Gradient with respect to logit:</strong></p>
+    $$\frac{\partial J}{\partial z_i} = p_i - y_i$$
+  </div>
+
+  <div class="card">
+    <h2>2. The \(C\) Hyperparameter Reference</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Setting</th>
+          <th>Equivalent \(\lambda\)</th>
+          <th>Weight Penalty</th>
+          <th>Variance</th>
+          <th>Bias</th>
+          <th>Risk</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>C = 1e-4</code></td>
+          <td>\(\lambda = 10^4\)</td>
+          <td>Severe shrinkage</td>
+          <td>Very Low</td>
+          <td>High</td>
+          <td>Underfitting</td>
+        </tr>
+        <tr>
+          <td><strong><code>C = 0.01</code> (Selected)</strong></td>
+          <td>\(\lambda = 100\)</td>
+          <td>Optimal balance</td>
+          <td>Balanced</td>
+          <td>Balanced</td>
+          <td>Optimal Log-Loss</td>
+        </tr>
+        <tr>
+          <td><code>C = 100</code></td>
+          <td>\(\lambda = 0.01\)</td>
+          <td>Minimal</td>
+          <td>High</td>
+          <td>Low</td>
+          <td>Overfitting to collinear stats</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>3. Preprocessing Pipeline Mapping</h2>
+    <ul>
+      <li><strong>28 Continuous Deltas:</strong> <code>SimpleImputer(strategy='median')</code> &rarr; <code>RobustScaler()</code></li>
+      <li><strong>2 Categorical Encodings:</strong> <code>OneHotEncoder(drop='first', handle_unknown='ignore')</code></li>
+      <li><strong>1 Binary Flag:</strong> <code>passthrough</code> (<code>is_grand_slam</code>)</li>
+      <li><strong>Total Transformed Features:</strong> 38 columns fed to <code>LogisticRegression</code></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>4. Scoring Metrics Cheat Sheet</h2>
+    <ul>
+      <li><strong>Log-Loss:</strong> \(-\frac{1}{n}\sum [y_i \ln p_i + (1-y_i)\ln(1-p_i)]\) &mdash; primary calibration loss.</li>
+      <li><strong>Brier Score:</strong> \(\frac{1}{n}\sum (p_i - y_i)^2\) &mdash; quadratic penalty, benchmarked vs bookmaker.</li>
+      <li><strong>ROC-AUC:</strong> Probability that winner receives higher win-probability than loser. Random = 0.50, Model = 0.7120.</li>
+    </ul>
+  </div>
+</body>
+</html>

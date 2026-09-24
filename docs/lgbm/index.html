@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LightGBM Champion Model Report | ATP Match Prediction</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdfa',
+              100: '#ccfbf1',
+              400: '#2dd4bf',
+              500: '#14b8a6',
+              600: '#0d9488',
+              900: '#134e4a',
+            },
+            surface: {
+              800: '#1e293b',
+              850: '#172033',
+              900: '#0f172a',
+              950: '#0b0f19',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    code, pre {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .gradient-border {
+      position: relative;
+      border-radius: 0.75rem;
+      background: linear-gradient(135deg, rgba(20, 184, 166, 0.3), rgba(59, 130, 246, 0.1), rgba(15, 23, 42, 0.8));
+      padding: 1px;
+    }
+  </style>
+</head>
+<body class="bg-surface-950 text-slate-200 antialiased min-h-screen">
+
+  <!-- Navigation Bar -->
+  <header class="border-b border-slate-800 bg-surface-900/80 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand-500 to-blue-500 flex items-center justify-center font-bold text-white text-sm shadow-lg shadow-brand-500/20">
+          🎾
+        </div>
+        <div>
+          <span class="font-extrabold text-white text-lg tracking-tight">ATP Prediction Engine</span>
+          <span class="text-xs text-slate-400 block -mt-1 font-mono">LightGBM Production Audit</span>
+        </div>
+      </div>
+      <div class="flex items-center space-x-3">
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1.5"></span>
+          Model Validated: 2024–2026 Holdout
+        </span>
+        <span class="text-xs text-slate-500 font-mono hidden sm:inline">LGBM-001 → 004</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
+
+    <!-- Executive Summary / Hero Header -->
+    <section class="space-y-4">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+            LightGBM Match Outcome Model
+          </h1>
+          <p class="text-slate-400 mt-1 max-w-3xl text-sm sm:text-base leading-relaxed">
+            A high-capacity gradient-boosted decision tree architecture trained on 31 fundamental player delta features over 24 historical ATP seasons (2000–2023), calibrated via 4 walk-forward expanding window CV folds and verified on out-of-sample modern tournaments (2024–2026).
+          </p>
+        </div>
+        <div class="flex items-center gap-2 self-start md:self-auto text-xs font-mono text-slate-400 bg-surface-900 border border-slate-800 px-3 py-2 rounded-lg">
+          <span>Objective: <span class="text-brand-400 font-semibold">binary_logloss</span></span>
+          <span class="text-slate-600">|</span>
+          <span>Trees: <span class="text-indigo-400 font-semibold">162</span></span>
+        </div>
+      </div>
+
+      <!-- Core KPI Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 pt-2">
+        <div class="gradient-border">
+          <div class="bg-surface-900 rounded-[11px] p-4 h-full">
+            <span class="text-xs font-medium text-slate-400 uppercase tracking-wider block">Holdout Log-Loss</span>
+            <div class="flex items-baseline mt-1 space-x-2">
+              <span class="text-2xl sm:text-3xl font-bold text-white font-mono">0.6149</span>
+              <span class="text-xs font-semibold text-emerald-400">CV: 0.6159</span>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-1">Zero future leakage detected</p>
+          </div>
+        </div>
+
+        <div class="gradient-border">
+          <div class="bg-surface-900 rounded-[11px] p-4 h-full">
+            <span class="text-xs font-medium text-slate-400 uppercase tracking-wider block">Holdout Brier Score</span>
+            <div class="flex items-baseline mt-1 space-x-2">
+              <span class="text-2xl sm:text-3xl font-bold text-white font-mono">0.2139</span>
+              <span class="text-xs font-mono text-slate-400">Book: 0.2016</span>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-1">Δ +0.0123 vs consensus odds</p>
+          </div>
+        </div>
+
+        <div class="gradient-border">
+          <div class="bg-surface-900 rounded-[11px] p-4 h-full">
+            <span class="text-xs font-medium text-slate-400 uppercase tracking-wider block">Discrimination (AUC)</span>
+            <div class="flex items-baseline mt-1 space-x-2">
+              <span class="text-2xl sm:text-3xl font-bold text-cyan-400 font-mono">0.7171</span>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-1">Strong statistical separation</p>
+          </div>
+        </div>
+
+        <div class="gradient-border">
+          <div class="bg-surface-900 rounded-[11px] p-4 h-full">
+            <span class="text-xs font-medium text-slate-400 uppercase tracking-wider block">Holdout Accuracy</span>
+            <div class="flex items-baseline mt-1 space-x-2">
+              <span class="text-2xl sm:text-3xl font-bold text-white font-mono">65.13%</span>
+              <span class="text-xs text-slate-400 font-mono">@ 0.5</span>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-1">4,423 / 6,791 modern matches</p>
+          </div>
+        </div>
+
+        <div class="gradient-border col-span-2 lg:col-span-1">
+          <div class="bg-surface-900 rounded-[11px] p-4 h-full">
+            <span class="text-xs font-medium text-slate-400 uppercase tracking-wider block">Features &amp; Imputation</span>
+            <div class="flex items-baseline mt-1 space-x-2">
+              <span class="text-2xl sm:text-3xl font-bold text-brand-400 font-mono">31</span>
+              <span class="text-xs font-semibold text-emerald-400">Native NaNs</span>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-1">Zero scaling / Zero synthetic bias</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Visualizations Grid (Calibration & CV Tuning) -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      
+      <!-- Chart 1: Reliability / Calibration Diagram -->
+      <div class="bg-surface-900 border border-slate-800 rounded-xl p-5 shadow-xl flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="font-bold text-white text-base flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-brand-400"></span>
+              Probabilistic Calibration Curve
+            </h3>
+            <span class="text-xs font-mono text-slate-400 bg-surface-850 px-2 py-1 rounded">10 Probability Deciles</span>
+          </div>
+          <p class="text-xs text-slate-400 mb-4">
+            Reliability diagram showing predicted probabilities vs observed win frequencies across all out-of-fold validation matches (N = 16,378).
+          </p>
+        </div>
+        <div class="h-64 sm:h-72 w-full">
+          <canvas id="calibrationChart"></canvas>
+        </div>
+        <div class="mt-3 pt-3 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
+          <span>Diagonal = Perfect calibration</span>
+          <span class="text-emerald-400 font-mono font-medium">Brier Score = 0.2143</span>
+        </div>
+      </div>
+
+      <!-- Chart 2: Walk-Forward CV Early Stopping Iterations -->
+      <div class="bg-surface-900 border border-slate-800 rounded-xl p-5 shadow-xl flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="font-bold text-white text-base flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-indigo-400"></span>
+              Expanding Window Cross-Validation
+            </h3>
+            <span class="text-xs font-mono text-slate-400 bg-surface-850 px-2 py-1 rounded">2000–2023 Seasons</span>
+          </div>
+          <p class="text-xs text-slate-400 mb-4">
+            Log-Loss convergence and early stopping round (<span class="font-mono text-indigo-300">best_iteration_</span>) per chronological walk-forward fold.
+          </p>
+        </div>
+        <div class="h-64 sm:h-72 w-full">
+          <canvas id="foldLossChart"></canvas>
+        </div>
+        <div class="mt-3 pt-3 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
+          <span>Mean CV Log-Loss: <strong class="text-white font-mono">0.6159</strong></span>
+          <span>Retrain Tree Budget: <strong class="text-indigo-400 font-mono">162 trees</strong></span>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Feature Importance Ranking (Chart 3) -->
+    <section class="bg-surface-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div>
+          <h3 class="font-bold text-white text-base flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+            Dominant Decision Tree Drivers (Top 15 Features by Gain)
+          </h3>
+          <p class="text-xs text-slate-400 mt-1">
+            Total log-loss reduction (split gain) accumulated across all 162 boosting trees. Fundamental player deltas dominate without market odds leakage.
+          </p>
+        </div>
+        <div class="flex items-center gap-2 text-xs font-mono">
+          <span class="px-2 py-1 bg-surface-850 rounded border border-slate-800 text-slate-300">Importance: <span class="text-amber-400">Gain</span></span>
+        </div>
+      </div>
+      <div class="h-80 sm:h-96 w-full">
+        <canvas id="featureGainChart"></canvas>
+      </div>
+    </section>
+
+    <!-- Architecture & Decision Records (ADRs) -->
+    <section class="space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-xl font-bold text-white tracking-tight">Core Architectural Decisions (ADRs)</h2>
+        <span class="text-xs text-slate-400 font-mono">Specs: LGBM-001 → LGBM-004</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        <!-- ADR 1 -->
+        <div class="bg-surface-900 border border-slate-800 rounded-xl p-5 space-y-2 hover:border-slate-700 transition">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-brand-400 uppercase tracking-wider font-mono">ADR-01 : Validation Scheme</span>
+            <span class="text-[11px] text-slate-500 font-mono">LGBM-001</span>
+          </div>
+          <h4 class="font-bold text-white text-sm">Chronological Expanding-Window CV (Zero Row Shuffling)</h4>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Standard K-fold random splitting produces catastrophic future-to-past leakage in tennis ratings. A walk-forward temporal harness was enforced across 4 sequential blocks: Fold 1 (2000–16 train / 2017–18 val) up to Fold 4 (2000–22 train / 2023 val).
+          </p>
+        </div>
+
+        <!-- ADR 2 -->
+        <div class="bg-surface-900 border border-slate-800 rounded-xl p-5 space-y-2 hover:border-slate-700 transition">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-brand-400 uppercase tracking-wider font-mono">ADR-02 : Missingness Policy</span>
+            <span class="text-[11px] text-slate-500 font-mono">LGBM-001 &amp; 002</span>
+          </div>
+          <h4 class="font-bold text-white text-sm">Native NaN Routing Without Imputation or Scaling</h4>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Continuous delta features were passed in raw form. Decision tree splitters natively route NaNs (e.g. unknown surface stats or rookie cold-starts) to the child branch that minimizes log-loss. Median/mean imputation was strictly avoided to prevent distortion of delta zero-points.
+          </p>
+        </div>
+
+        <!-- ADR 3 -->
+        <div class="bg-surface-900 border border-slate-800 rounded-xl p-5 space-y-2 hover:border-slate-700 transition">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-brand-400 uppercase tracking-wider font-mono">ADR-03 : Market Independence</span>
+            <span class="text-[11px] text-slate-500 font-mono">LGBM-001 &amp; 004</span>
+          </div>
+          <h4 class="font-bold text-white text-sm">Betting Odds Held Out Strictly as Benchmark Series</h4>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Bookmaker odds (<code class="text-slate-300">odds_diff</code>, <code class="text-slate-300">implied_prob_diff</code>) were completely stripped from feature matrix <span class="font-mono text-white">X</span>. Trees reflect fundamental sport dynamics. Odds are reserved exclusively to evaluate post-hoc market Brier benchmarks.
+          </p>
+        </div>
+
+        <!-- ADR 4 -->
+        <div class="bg-surface-900 border border-slate-800 rounded-xl p-5 space-y-2 hover:border-slate-700 transition">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-brand-400 uppercase tracking-wider font-mono">ADR-04 : Regularization &amp; Tuning</span>
+            <span class="text-[11px] text-slate-500 font-mono">LGBM-003</span>
+          </div>
+          <h4 class="font-bold text-white text-sm">Constrained Leaf Depth &amp; Early Stopping</h4>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            A 9-combination grid search over <code class="text-slate-300">num_leaves ∈ [15, 31, 63]</code> and <code class="text-slate-300">min_child_samples ∈ [20, 50, 100]</code> identified <strong class="text-white">63 leaves / 100 min samples</strong> as optimal. Coupled with 50-round early stopping, this prevents trees from memorizing sample noise.
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Configuration & Hyperparameter Specification Table -->
+    <section class="bg-surface-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+      <h3 class="font-bold text-white text-base">Champion Model Configuration Specification</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs sm:text-sm text-slate-300">
+          <thead class="bg-surface-850 text-slate-400 uppercase text-[11px] font-mono border-b border-slate-800">
+            <tr>
+              <th class="py-3 px-4">Parameter</th>
+              <th class="py-3 px-4">Configured Value</th>
+              <th class="py-3 px-4">Rationale</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800/60 font-mono">
+            <tr>
+              <td class="py-2.5 px-4 text-white font-semibold">objective</td>
+              <td class="py-2.5 px-4 text-brand-400">binary</td>
+              <td class="py-2.5 px-4 text-slate-400 font-sans">Minimizes binary cross-entropy log-loss for match outcome</td>
+            </tr>
+            <tr>
+              <td class="py-2.5 px-4 text-white font-semibold">metric</td>
+              <td class="py-2.5 px-4 text-brand-400">binary_logloss</td>
+              <td class="py-2.5 px-4 text-slate-400 font-sans">Validation tracking metric monitored by early stopping callbacks</td>
+            </tr>
+            <tr>
+              <td class="py-2.5 px-4 text-white font-semibold">learning_rate</td>
+              <td class="py-2.5 px-4 text-brand-400">0.03</td>
+              <td class="py-2.5 px-4 text-slate-400 font-sans">Conservative shrinkage preventing early gradient oscillation</td>
+            </tr>
+            <tr>
+              <td class="py-2.5 px-4 text-white font-semibold">num_leaves</td>
+              <td class="py-2.5 px-4 text-brand-400">63</td>
+              <td class="py-2.5 px-4 text-slate-400 font-sans">Selected via CV grid search; allows moderate feature interactions</td>
+            </tr>
+            <tr>
+              <td class="py-2.5 px-4 text-white font-semibold">min_child_samples</td>
+              <td class="py-2.5 px-4 text-brand-400">100</td>
+              <td class="py-2.5 px-4 text-slate-400 font-sans">Regularization constraint; prevents isolating small sample match flukes</td>
+            </tr>
+            <tr>
+              <td class="py-2.5 px-4 text-white font-semibold">subsample / colsample</td>
+              <td class="py-2.5 px-4 text-brand-400">0.8 / 0.8</td>
+              <td class="py-2.5 px-4 text-slate-400 font-sans">Row and column subsampling de-correlates individual tree structures</td>
+            </tr>
+            <tr>
+              <td class="py-2.5 px-4 text-white font-semibold">n_estimators (final)</td>
+              <td class="py-2.5 px-4 text-indigo-400">162</td>
+              <td class="py-2.5 px-4 text-slate-400 font-sans">Mean optimal iteration count derived across the 4 walk-forward folds</td>
+            </tr>
+            <tr>
+              <td class="py-2.5 px-4 text-white font-semibold">categorical_feature</td>
+              <td class="py-2.5 px-4 text-slate-300">[surface, series, is_grand_slam]</td>
+              <td class="py-2.5 px-4 text-slate-400 font-sans">Native optimal subset partitioning without one-hot expansion</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="pt-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-4">
+      <div>
+        <span>ATP Match Prediction Modeling Track • Machine Learning Pair-Programming Series</span>
+      </div>
+      <div class="flex items-center space-x-4 font-mono text-[11px]">
+        <span>Train: 2000–2023 (61,560)</span>
+        <span>•</span>
+        <span>Holdout: 2024–2026 (6,791)</span>
+      </div>
+    </footer>
+
+  </main>
+
+  <!-- Script: Chart.js Initializations -->
+  <script>
+    // Theme Defaults
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.font.family = "'JetBrains Mono', monospace";
+    Chart.defaults.borderColor = 'rgba(51, 65, 85, 0.4)';
+
+    // 1. Calibration Chart
+    const ctxCalib = document.getElementById('calibrationChart').getContext('2d');
+    new Chart(ctxCalib, {
+      type: 'line',
+      data: {
+        labels: ['0.05', '0.15', '0.25', '0.35', '0.45', '0.55', '0.65', '0.75', '0.85', '0.95'],
+        datasets: [
+          {
+            label: 'Perfect Calibration',
+            data: [0.05, 0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95],
+            borderColor: '#64748b',
+            borderDash: [5, 5],
+            borderWidth: 1.5,
+            pointRadius: 0,
+            fill: false
+          },
+          {
+            label: 'LightGBM Champion',
+            data: [0.07, 0.16, 0.26, 0.36, 0.47, 0.54, 0.64, 0.73, 0.83, 0.92],
+            borderColor: '#14b8a6',
+            backgroundColor: 'rgba(20, 184, 166, 0.15)',
+            borderWidth: 2.5,
+            pointBackgroundColor: '#14b8a6',
+            pointBorderColor: '#ffffff',
+            pointRadius: 4,
+            tension: 0.15,
+            fill: false
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: { boxWidth: 12, padding: 12, font: { size: 11 } }
+          },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `${ctx.dataset.label}: ${(ctx.parsed.y * 100).toFixed(1)}% observed`
+            }
+          }
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 'Predicted Win Probability Bin', font: { size: 10 } }
+          },
+          y: {
+            title: { display: true, text: 'Observed Win Frequency', font: { size: 10 } },
+            min: 0,
+            max: 1
+          }
+        }
+      }
+    });
+
+    // 2. Walk-Forward Fold Performance Chart
+    const ctxFold = document.getElementById('foldLossChart').getContext('2d');
+    new Chart(ctxFold, {
+      type: 'bar',
+      data: {
+        labels: [
+          'Fold 1 (2017–18)',
+          'Fold 2 (2019–20)',
+          'Fold 3 (2021–22)',
+          'Fold 4 (2023)'
+        ],
+        datasets: [
+          {
+            type: 'bar',
+            label: 'Optimal Trees (best_iteration_)',
+            data: [82, 128, 142, 295],
+            backgroundColor: 'rgba(99, 102, 241, 0.35)',
+            borderColor: '#6366f1',
+            borderWidth: 1.5,
+            borderRadius: 6,
+            yAxisID: 'yTrees'
+          },
+          {
+            type: 'line',
+            label: 'Val Log-Loss',
+            data: [0.6155, 0.6202, 0.6148, 0.6130],
+            borderColor: '#2dd4bf',
+            backgroundColor: '#2dd4bf',
+            borderWidth: 2.5,
+            pointRadius: 5,
+            pointHoverRadius: 7,
+            yAxisID: 'yLoss'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: { boxWidth: 12, padding: 12, font: { size: 11 } }
+          }
+        },
+        scales: {
+          yTrees: {
+            type: 'linear',
+            position: 'left',
+            title: { display: true, text: 'Early Stopped Trees', font: { size: 10 } },
+            min: 0,
+            max: 350
+          },
+          yLoss: {
+            type: 'linear',
+            position: 'right',
+            title: { display: true, text: 'Validation Log-Loss', font: { size: 10 } },
+            min: 0.605,
+            max: 0.630,
+            grid: { drawOnChartArea: false }
+          }
+        }
+      }
+    });
+
+    // 3. Top 15 Feature Importance Chart (Gain)
+    const ctxGain = document.getElementById('featureGainChart').getContext('2d');
+    const features = [
+      'pts_diff',
+      'rank_diff',
+      'med_winrate_diff',
+      'career_winrate_diff',
+      'surface_winrate_diff',
+      'h2h_winrate',
+      'short_winrate_diff',
+      'form_divergence_diff',
+      'days_since_last_diff',
+      'h2h_match_count',
+      'career_tb_winrate_diff',
+      'matches_30d_diff',
+      'career_avg_games_per_set_diff',
+      'surface_encoded',
+      'series_encoded'
+    ].reverse();
+
+    const gains = [
+      48200, 36400, 19800, 16200, 13400, 
+      11200, 9800, 8900, 7400, 6100, 
+      5400, 4800, 4100, 3500, 2900
+    ].reverse();
+
+    new Chart(ctxGain, {
+      type: 'bar',
+      data: {
+        labels: features,
+        datasets: [{
+          label: 'Total Split Gain',
+          data: gains,
+          backgroundColor: 'rgba(245, 158, 11, 0.35)',
+          borderColor: '#f59e0b',
+          borderWidth: 1.5,
+          borderRadius: 4
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `Gain: ${ctx.parsed.x.toLocaleString()}`
+            }
+          }
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 'Accumulated Log-Loss Reduction (Gain)', font: { size: 10 } },
+            grid: { color: 'rgba(51, 65, 85, 0.3)' }
+          },
+          y: {
+            ticks: { font: { size: 10 } }
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>
