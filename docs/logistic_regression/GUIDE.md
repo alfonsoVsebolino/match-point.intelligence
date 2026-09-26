@@ -57,7 +57,9 @@ $$J(w, b) = -\frac{1}{n} \sum_{i=1}^n \left[ y_i \ln(p_i) + (1 - y_i) \ln(1 - p_
 ### 3.1 The Regularized Objective
 Collinear rolling statistics (e.g., short-term vs medium-term vs career win rates) can cause linear coefficients to destabilize and grow arbitrarily large in opposite directions. To enforce numerical stability and generalizability, **L2 regularization (Ridge penalty)** is added:
 
-$$\min_{w, b} \left\{ \sum_{i=1}^n \left[ -y_i \ln(p_i) - (1 - y_i)\ln(1 - p_i) \right] + \frac{1}{2C} \sum_{j=1}^d w_j^2 \right\}$$
+$$
+\min_{w, b} \left\lbrace \sum_{i=1}^n \left[ -y_i \ln(p_i) - (1 - y_i)\ln(1 - p_i) \right] + \frac{1}{2C} \sum_{j=1}^d w_j^2 \right\rbrace
+$$
 
 *(Note: Scikit-learn minimizes the sum of losses rather than the mean, parameterized by $C$. The intercept $b$ is unregularized.)*
 
@@ -65,7 +67,7 @@ $$\min_{w, b} \left\{ \sum_{i=1}^n \left[ -y_i \ln(p_i) - (1 - y_i)\ln(1 - p_i) 
 In Scikit-learn, $C$ is the **inverse regularization strength**:
 $$C = \frac{1}{\lambda}$$
 
-| Setting | Regularization Strength | Penalty Weight $\frac{1}{2C}$ | Coefficient Magnitudes $\|w\|_2$ | Model Bias | Model Variance | Risk |
+| Setting | Regularization Strength | Penalty Weight $\frac{1}{2C}$ | Coefficient Magnitudes $\Vert w \Vert_2$ | Model Bias | Model Variance | Risk |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Small $C$** ($10^{-4}, 10^{-3}$)| Heavy | High | Strongly shrunk $\to 0$ | High | Low | Underfitting |
 | **Optimal $C$** ($10^{-2} = 0.01$)| Balanced | Moderate | Penalized collinearity | Optimal | Optimal | Best validation log-loss |
@@ -185,6 +187,6 @@ $$\text{Brier} = \frac{1}{n} \sum_{i=1}^n (p_i - y_i)^2$$
 
 | Model / Benchmark | OOF Log-Loss | OOF Brier Score | Test Log-Loss (2024–26) | Test Brier Score | Test ROC-AUC | Test Accuracy |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Regularized Logistic Regression ($C=0.01$)** | **0.6195** | **0.2156** | **0.6205** | **0.2159** | **0.7120** | **64.95%** |
+| **Regularized Logistic Regression ($C=0.01$)** | **0.6195** | **0.2156** | **0.6205** | **0.2159** | **0.7120** | **64.94%** |
 | **Bookmaker Implied Odds** | — | **0.2021** | — | **0.2016** | — | ~68.0% |
-| **LightGBM Champion** | 0.6178 | 0.2148 | 0.6190 | 0.2152 | 0.7150 | 65.20% |
+| **LightGBM Champion** | 0.6152 | 0.2144 | 0.6156 | 0.2142 | 0.7167 | 65.38% |
