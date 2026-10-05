@@ -4,10 +4,19 @@ import pandas as pd
 BASE_DIR = os.path.dirname(__file__)
 TEST_CSV_PATH = os.path.join(BASE_DIR, "test_features.csv")
 TRAIN_CSV_PATH = os.path.join(BASE_DIR, "train_features.csv")
+SCORES_CSV_PATH = os.path.join(BASE_DIR, "match_scores.csv")
 
 # Load datasets
 test_df = pd.read_csv(TEST_CSV_PATH) if os.path.exists(TEST_CSV_PATH) else pd.DataFrame()
 train_df = pd.read_csv(TRAIN_CSV_PATH) if os.path.exists(TRAIN_CSV_PATH) else pd.DataFrame()
+
+# Ingest and merge match scores if available
+if os.path.exists(SCORES_CSV_PATH):
+    scores_df = pd.read_csv(SCORES_CSV_PATH)
+    if not test_df.empty:
+        test_df = test_df.merge(scores_df, on=["Date", "Player_1", "Player_2"], how="left")
+    if not train_df.empty:
+        train_df = train_df.merge(scores_df, on=["Date", "Player_1", "Player_2"], how="left")
 
 # Create unified chronological dataset
 if not test_df.empty and not train_df.empty:

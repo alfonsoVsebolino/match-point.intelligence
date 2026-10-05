@@ -43,6 +43,7 @@ def test_historical_match_backtracker():
     first_match_id = matches[0][1]
     card_html = atp_engine.inspect_historical_match("Holdout Test (2024–2026)", first_tourn, first_match_id)
     assert "Actual Winner:" in card_html
+    assert "Score:" in card_html
     assert "★ LightGBM Champion" in card_html
     assert "Rank Δ" in card_html
     assert "H2H Record" in card_html
