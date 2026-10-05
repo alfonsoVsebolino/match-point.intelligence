@@ -84,6 +84,19 @@ Launch the standalone web console with dual-model inference, inversion symmetry 
 python gradio_app.py
 ```
 
+#### Native Desktop GUI: Tkinter Match Predictor
+Launch the standalone high-performance desktop application with dual-model win probabilities, 5-metric key delta tiles, and historical backtracker:
+
+```bash
+python tk_app.py
+```
+
+> **Note for Linux Users**: Tkinter requires the system-level Tcl/Tk package. If not already installed in your Linux environment, install it via:
+> ```bash
+> sudo apt install python3-tk
+> ```
+
+
 #### Full-Pipeline: Kaggle ETL & Feature Engineering
 To re-run the 7-phase data cleaning, score parsing, rolling statistics computation, and feature selection:
 

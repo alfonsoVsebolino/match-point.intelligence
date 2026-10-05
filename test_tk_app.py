@@ -1,5 +1,7 @@
 import subprocess
 import sys
+import threading
+import time
 import pytest
 import atp_engine
 from atp_engine import DEFAULT_P1, DEFAULT_P2, active_players, all_players
@@ -263,6 +265,11 @@ def test_gui_smoke_and_acceptance_criteria():
         assert "Upcoming" in app.notebook.tab(0, "text")
         assert "Historical" in app.notebook.tab(1, "text")
 
+        # Initial prediction verified on startup
+        app.wait_for_prediction()
+        assert app.last_prediction is not None
+        assert app.prob_display.has_data is True
+
         # Swap exchanges players
         app.on_swap()
         assert app.p1_var.get() == DEFAULT_P2
@@ -279,6 +286,7 @@ def test_gui_smoke_and_acceptance_criteria():
 
         # Prediction execution with real engine
         app.on_predict()
+        app.wait_for_prediction()
         assert app.error_var.get() == ""
         assert app.last_prediction is not None
         assert "prob_lgb" in app.last_prediction
@@ -346,10 +354,12 @@ def test_gui_smoke_and_acceptance_criteria():
         # Same-player and empty validation errors
         app.p2_var.set(app.p1_var.get())
         app.on_predict()
+        app.wait_for_prediction()
         assert "different athletes" in app.error_var.get().lower()
 
         app.p1_var.set("")
         app.on_predict()
+        app.wait_for_prediction()
         assert "select both" in app.error_var.get().lower()
 
         # -------------------------------------------------------------------
@@ -382,6 +392,7 @@ def test_gui_smoke_and_acceptance_criteria():
 
         # AC 2: Inspect shows model probabilities for stored fixture
         app.on_inspect()
+        app.wait_for_inspect()
         assert app.historical_error_var.get() == ""
         assert app.last_historical_prediction is not None
         assert "prob_lgb" in app.last_historical_prediction
@@ -450,6 +461,7 @@ def test_gui_smoke_and_acceptance_criteria():
         # AC 5: Empty/invalid selection shows clear message
         app.match_var.set("")
         app.on_inspect()
+        app.wait_for_inspect()
         assert "valid tournament and matchup" in app.historical_error_var.get().lower()
         assert app.hist_error_frame.winfo_manager() != ""
         assert app.hist_winner_badge_frame.winfo_manager() == ""
@@ -464,5 +476,198 @@ def test_gui_smoke_and_acceptance_criteria():
         assert app.hist_header_frame.winfo_manager() == ""
 
 
+    finally:
+        root.destroy()
+
+
+def test_readme_launch_docs():
+    with open("README.md", "r", encoding="utf-8") as f:
+        content = f.read()
+    assert "python tk_app.py" in content
+    assert "python3-tk" in content
+
+
+def test_initial_prediction_on_startup():
+    import tkinter as tk
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("No graphical display available for Tk smoke test")
+
+    try:
+        from tk_app import App, DEFAULT_P1, DEFAULT_P2, DEFAULT_SURFACE, DEFAULT_SERIES
+        app = App(root, init_predict=True)
+        # Wait for the startup prediction scheduled via root.after(50, ...)
+        app.wait_for_prediction()
+
+        assert app.last_prediction is not None
+        assert app.last_prediction["p1"] == DEFAULT_P1
+        assert app.last_prediction["p2"] == DEFAULT_P2
+        assert app.last_prediction["surface"] == DEFAULT_SURFACE
+        assert app.last_prediction["series"] == DEFAULT_SERIES
+        assert app.prob_display.has_data is True
+        assert app.placeholder_frame.winfo_manager() == ""
+        assert str(app.predict_btn["state"]) == "normal"
+        assert str(app.hist_inspect_btn["state"]) == "normal"
+    finally:
+        root.destroy()
+
+
+def test_async_predict_buttons_state_and_completion(monkeypatch):
+    import tkinter as tk
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("No graphical display available for Tk smoke test")
+
+    try:
+        import atp_service
+        from tk_app import App
+        app = App(root, init_predict=False)
+
+        assert str(app.predict_btn["state"]) == "normal"
+        assert str(app.hist_inspect_btn["state"]) == "normal"
+
+        started_evt = threading.Event()
+        resume_evt = threading.Event()
+
+        def slow_predict(*args, **kwargs):
+            started_evt.set()
+            resume_evt.wait(timeout=2.0)
+            return {
+                "p1": "Alcaraz C.",
+                "p2": "Sinner J.",
+                "surface": "Hard",
+                "series": "Grand Slam",
+                "prob_lgb": 0.6,
+                "prob_lr": 0.5,
+                "key_stats": {},
+            }
+
+        monkeypatch.setattr(atp_service, "predict", slow_predict)
+
+        thread = app.on_predict()
+        started_evt.wait(timeout=1.0)
+        root.update()
+
+        # Both buttons disabled during prediction run
+        assert str(app.predict_btn["state"]) == "disabled"
+        assert str(app.hist_inspect_btn["state"]) == "disabled"
+
+        # Resume worker
+        resume_evt.set()
+        app.wait_for_prediction()
+
+        # Both buttons re-enabled after run
+        assert str(app.predict_btn["state"]) == "normal"
+        assert str(app.hist_inspect_btn["state"]) == "normal"
+        assert app.last_prediction is not None
+    finally:
+        root.destroy()
+
+
+def test_async_inspect_buttons_state_and_completion(monkeypatch):
+    import tkinter as tk
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("No graphical display available for Tk smoke test")
+
+    try:
+        import atp_service
+        from tk_app import App
+        app = App(root, init_predict=False)
+
+        assert str(app.predict_btn["state"]) == "normal"
+        assert str(app.hist_inspect_btn["state"]) == "normal"
+
+        started_evt = threading.Event()
+        resume_evt = threading.Event()
+
+        def slow_inspect(*args, **kwargs):
+            started_evt.set()
+            resume_evt.wait(timeout=2.0)
+            return {
+                "p1": "Alcaraz C.",
+                "p2": "Sinner J.",
+                "surface": "Hard",
+                "series": "Grand Slam",
+                "prob_lgb": 0.6,
+                "prob_lr": 0.5,
+                "actual_winner": "Alcaraz C.",
+                "key_stats": {},
+            }
+
+        monkeypatch.setattr(atp_service, "inspect", slow_inspect)
+
+        thread = app.on_inspect()
+        started_evt.wait(timeout=1.0)
+        root.update()
+
+        assert str(app.predict_btn["state"]) == "disabled"
+        assert str(app.hist_inspect_btn["state"]) == "disabled"
+
+        resume_evt.set()
+        app.wait_for_inspect()
+
+        assert str(app.predict_btn["state"]) == "normal"
+        assert str(app.hist_inspect_btn["state"]) == "normal"
+        assert app.last_historical_prediction is not None
+    finally:
+        root.destroy()
+
+
+def test_prediction_exception_surfaces_as_banner_without_crash(monkeypatch):
+    import tkinter as tk
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("No graphical display available for Tk smoke test")
+
+    try:
+        import atp_service
+        from tk_app import App
+        app = App(root, init_predict=False)
+
+        def failing_predict(*args, **kwargs):
+            raise RuntimeError("Engine model load failure: simulated network timeout")
+
+        monkeypatch.setattr(atp_service, "predict", failing_predict)
+
+        app.on_predict()
+        app.wait_for_prediction()
+
+        assert "Engine model load failure: simulated network timeout" in app.error_var.get()
+        assert app.error_frame.winfo_manager() != ""
+        assert str(app.predict_btn["state"]) == "normal"
+        assert str(app.hist_inspect_btn["state"]) == "normal"
+    finally:
+        root.destroy()
+
+
+def test_inspect_exception_surfaces_as_banner_without_crash(monkeypatch):
+    import tkinter as tk
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("No graphical display available for Tk smoke test")
+
+    try:
+        import atp_service
+        from tk_app import App
+        app = App(root, init_predict=False)
+
+        def failing_inspect(*args, **kwargs):
+            raise RuntimeError("Corrupt match data partition")
+
+        monkeypatch.setattr(atp_service, "inspect", failing_inspect)
+
+        app.on_inspect()
+        app.wait_for_inspect()
+
+        assert "Corrupt match data partition" in app.historical_error_var.get()
+        assert app.hist_error_frame.winfo_manager() != ""
+        assert str(app.predict_btn["state"]) == "normal"
+        assert str(app.hist_inspect_btn["state"]) == "normal"
     finally:
         root.destroy()

@@ -1,6 +1,8 @@
 """MatchPoint.intelligence dedicated Tkinter desktop application."""
 
 import sys
+import threading
+import time
 import tkinter as tk
 from tkinter import ttk
 from atp_data import SPLIT_CHOICES, get_tournaments_for_split, get_matches_for_tournament
@@ -376,7 +378,7 @@ class BookmakerBarCanvas(tk.Canvas):
 class App:
     """Tkinter Desktop Application Shell for ATP Matchup Predictor."""
 
-    def __init__(self, root: tk.Tk | None = None):
+    def __init__(self, root: tk.Tk | None = None, init_predict: bool = True):
         if root is None:
             self.root = tk.Tk()
             self._owns_root = True
@@ -415,9 +417,18 @@ class App:
         self.historical_error_var = tk.StringVar(value="")
         self.last_historical_prediction = None
 
+        self._predict_thread = None
+        self._predict_result = None
+        self._inspect_thread = None
+        self._inspect_result = None
+        self._init_timer = None
+
         self._configure_styles()
         self._build_header()
         self._build_notebook()
+
+        if init_predict:
+            self._init_timer = self.root.after(50, self.on_predict)
 
     def _configure_styles(self):
         style = ttk.Style()
@@ -884,6 +895,7 @@ class App:
         btn_box.grid(row=0, column=1, sticky="se", padx=(6, 0), pady=(0, 1))
         self.inspect_btn = ttk.Button(btn_box, text="🔍 Inspect & Backtrack", style="Primary.TButton", command=self.on_inspect)
         self.inspect_btn.pack(fill="x")
+        self.hist_inspect_btn = self.inspect_btn
 
         # Bind cascading changes
         self.split_combo.bind("<<ComboboxSelected>>", self.on_historical_split_change)
@@ -1161,20 +1173,69 @@ class App:
         self.p1_var.set(new_p1)
         self.p2_var.set(new_p2)
 
-    def on_predict(self):
+    def on_predict(self, *args, async_run: bool = True, **kwargs) -> threading.Thread | None:
+        if getattr(self, "_init_timer", None) is not None:
+            try:
+                self.root.after_cancel(self._init_timer)
+            except Exception:
+                pass
+            self._init_timer = None
+
+        if args and isinstance(args[0], bool):
+            async_run = args[0]
+
         p1 = self.p1_var.get().strip()
         p2 = self.p2_var.get().strip()
         surface = self.surface_var.get().strip()
         series = self.series_var.get().strip()
 
-        res = atp_service.predict(p1, p2, surface, series)
-        self.last_prediction = res
+        self._predict_result = None
+        self.predict_btn.config(state="disabled")
+        self.hist_inspect_btn.config(state="disabled")
 
-        err = format_error_text(res)
-        if err:
-            self.show_error(err)
-        else:
-            self.show_prediction(res)
+        if not async_run:
+            res = None
+            exc = None
+            try:
+                res = atp_service.predict(p1, p2, surface, series)
+            except Exception as e:
+                exc = e
+            self._on_prediction_done(res, exc)
+            return None
+
+        def worker():
+            res = None
+            exc = None
+            try:
+                res = atp_service.predict(p1, p2, surface, series)
+            except Exception as e:
+                exc = e
+            self._predict_result = (res, exc)
+            try:
+                self.root.after(0, lambda: self._on_prediction_done(res, exc))
+            except RuntimeError:
+                pass
+
+        thread = threading.Thread(target=worker, daemon=True)
+        self._predict_thread = thread
+        thread.start()
+        return thread
+
+    def _on_prediction_done(self, res: dict | None = None, exc: Exception | None = None):
+        self._predict_result = None
+        try:
+            if exc is not None:
+                self.show_error(str(exc))
+            elif res is not None:
+                self.last_prediction = res
+                err = format_error_text(res)
+                if err:
+                    self.show_error(err)
+                else:
+                    self.show_prediction(res)
+        finally:
+            self.predict_btn.config(state="normal")
+            self.hist_inspect_btn.config(state="normal")
 
     def reset_card(self):
         self.error_var.set("")
@@ -1269,7 +1330,10 @@ class App:
         self.match_var.set(match_labels[0] if match_labels else "")
         self.historical_match_id = first_match_id
 
-    def on_inspect(self):
+    def on_inspect(self, *args, async_run: bool = True, **kwargs) -> threading.Thread | None:
+        if args and isinstance(args[0], bool):
+            async_run = args[0]
+
         cur_split = self.split_var.get().strip()
         tourn_name = self.tourn_var.get().strip()
         match_label = self.match_var.get().strip()
@@ -1287,16 +1351,57 @@ class App:
 
         if not match_id or not tourn_name or not cur_split:
             self.show_historical_error("Select a valid tournament and matchup to inspect.")
-            return
+            return None
 
-        res = atp_service.inspect(cur_split, tourn_name, match_id)
-        self.last_historical_prediction = res
+        self._inspect_result = None
+        self.predict_btn.config(state="disabled")
+        self.hist_inspect_btn.config(state="disabled")
 
-        err = format_error_text(res)
-        if err:
-            self.show_historical_error(err)
-        else:
-            self.show_historical_prediction(res)
+        if not async_run:
+            res = None
+            exc = None
+            try:
+                res = atp_service.inspect(cur_split, tourn_name, match_id)
+            except Exception as e:
+                exc = e
+            self._on_inspect_done(res, exc)
+            return None
+
+        def worker():
+            res = None
+            exc = None
+            try:
+                res = atp_service.inspect(cur_split, tourn_name, match_id)
+            except Exception as e:
+                exc = e
+            self._inspect_result = (res, exc)
+            try:
+                self.root.after(0, lambda: self._on_inspect_done(res, exc))
+            except RuntimeError:
+                pass
+
+        thread = threading.Thread(target=worker, daemon=True)
+        self._inspect_thread = thread
+        thread.start()
+        return thread
+
+    def _on_inspect_done(self, res: dict | None = None, exc: Exception | None = None):
+        self._inspect_result = None
+        try:
+            if exc is not None:
+                self.show_historical_error(str(exc))
+            elif res is not None:
+                self.last_historical_prediction = res
+                err = format_error_text(res)
+                if err:
+                    self.show_historical_error(err)
+                else:
+                    self.show_historical_prediction(res)
+        finally:
+            self.predict_btn.config(state="normal")
+            self.hist_inspect_btn.config(state="normal")
+
+    _on_historical_done = _on_inspect_done
 
     def reset_historical_card(self):
         self.historical_error_var.set("")
@@ -1425,6 +1530,35 @@ class App:
                 self.hist_stats_tiles[k]["title"].config(text=item["label"].upper())
                 self.hist_stats_tiles[k]["val"].config(text=item["val"], fg=item["color"])
         self.hist_stats_frame.pack(fill="x", pady=(8, 0))
+
+    def wait_for_prediction(self, timeout: float = 5.0):
+        """Waits for prediction thread or startup prediction to finish and processes Tk events."""
+        start = time.time()
+        while getattr(self, "_init_timer", None) is not None and getattr(self, "_predict_thread", None) is None and (time.time() - start) < timeout:
+            self.root.update()
+            time.sleep(0.01)
+
+        t = getattr(self, "_predict_thread", None)
+        if t is not None and t.is_alive():
+            t.join(timeout=timeout)
+
+        if getattr(self, "_predict_result", None) is not None:
+            r, e = self._predict_result
+            self._predict_result = None
+            self._on_prediction_done(r, e)
+        self.root.update()
+
+    def wait_for_inspect(self, timeout: float = 5.0):
+        """Waits for historical inspect thread to finish and processes Tk events."""
+        t = getattr(self, "_inspect_thread", None)
+        if t is not None and t.is_alive():
+            t.join(timeout=timeout)
+
+        if getattr(self, "_inspect_result", None) is not None:
+            r, e = self._inspect_result
+            self._inspect_result = None
+            self._on_inspect_done(r, e)
+        self.root.update()
 
     def mainloop(self):
         self.root.mainloop()
