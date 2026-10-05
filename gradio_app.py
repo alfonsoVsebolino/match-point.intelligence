@@ -163,12 +163,12 @@ def predict_matchup(p1: str, p2: str, surface: str, series: str):
     raw_lr_p1 = float(champion_lr.predict_proba(X_fwd)[0, 1])
     raw_lr_p2 = float(champion_lr.predict_proba(X_inv)[0, 1])
     
+    # Raw tree asymmetry before dual-pass symmetrization
+    raw_asym = abs(raw_lgb_p1 + raw_lgb_p2 - 1.0)
+    
     # Symmetrized probabilities: P(P1) = [M(X) + (1 - M(-X))] / 2
     prob_lgb = (raw_lgb_p1 + (1.0 - raw_lgb_p2)) / 2.0
     prob_lr = (raw_lr_p1 + (1.0 - raw_lr_p2)) / 2.0
-    
-    # Symmetry audit
-    sym_score = abs((prob_lgb + (1.0 - prob_lgb)) - 1.0)
     
     # Divergence check
     div_delta = abs(prob_lgb - prob_lr)
@@ -191,7 +191,7 @@ def predict_matchup(p1: str, p2: str, surface: str, series: str):
     return render_diagnostic_card(
         p1=p1, p2=p2, surface=surface, series=series,
         prob_lgb=prob_lgb, prob_lr=prob_lr,
-        key_stats=key_stats, sym_score=sym_score,
+        key_stats=key_stats, raw_asym=raw_asym,
         is_divergent=is_divergent, div_delta=div_delta
     )
 
@@ -242,7 +242,7 @@ def inspect_historical_match(split: str, tournament: str, match_idx_str: str):
     return render_diagnostic_card(
         p1=p1, p2=p2, surface=surface, series=series,
         prob_lgb=prob_lgb, prob_lr=prob_lr,
-        key_stats=key_stats, sym_score=0.0,
+        key_stats=key_stats, raw_asym=None,
         is_divergent=abs(prob_lgb - prob_lr) > 0.15,
         div_delta=abs(prob_lgb - prob_lr),
         bm_prob=bm_prob, actual_winner=winner,
@@ -256,7 +256,7 @@ def inspect_historical_match(split: str, tournament: str, match_idx_str: str):
 def render_diagnostic_card(
     p1: str, p2: str, surface: str, series: str,
     prob_lgb: float, prob_lr: float, key_stats: dict,
-    sym_score: float = 0.0, is_divergent: bool = False,
+    raw_asym: float = None, is_divergent: bool = False,
     div_delta: float = 0.0, bm_prob: float = None,
     actual_winner: str = None, date_str: str = None,
     round_name: str = None, tournament: str = None
@@ -329,6 +329,20 @@ def render_diagnostic_card(
     if tournament and date_str:
         sub_title = f"{date_str} • {tournament} ({round_name}) • {surface}"
 
+    # Symmetry badge (evaluated in Mode A dual-pass, omitted in Mode B historical replay)
+    if raw_asym is not None:
+        sym_chip_html = f"""
+        <span style="font-size:11px; font-family:'JetBrains Mono', monospace; padding:3px 8px; border-radius:6px; background:rgba(16, 185, 129, 0.1); border:1px solid rgba(16, 185, 129, 0.3); color:#10b981; font-weight:600;" title="Raw tree asymmetry before dual-pass symmetrization: {raw_asym:.4f}">
+            Symmetry: Enforced (Raw Δ: {raw_asym*100:.2f}%)
+        </span>
+        """
+    else:
+        sym_chip_html = """
+        <span style="font-size:11px; font-family:'JetBrains Mono', monospace; padding:3px 8px; border-radius:6px; background:#1e293b; color:#94a3b8; font-weight:600;">
+            Holdout Replay
+        </span>
+        """
+
     card_html = f"""
     <div style="background:#0f172a; border:1px solid #1e293b; border-radius:12px; padding:20px; font-family:'Plus Jakarta Sans', sans-serif; color:#f8fafc; box-shadow:0 10px 25px -5px rgba(0, 0, 0, 0.4);">
         <!-- Match Header -->
@@ -348,9 +362,7 @@ def render_diagnostic_card(
                 <span style="font-size:11px; font-family:'JetBrains Mono', monospace; padding:3px 8px; border-radius:6px; background:#1e293b; color:#cbd5e1; font-weight:600;">
                     {series}
                 </span>
-                <span style="font-size:11px; font-family:'JetBrains Mono', monospace; padding:3px 8px; border-radius:6px; background:rgba(16, 185, 129, 0.1); border:1px solid rgba(16, 185, 129, 0.3); color:#10b981; font-weight:600;">
-                    Symmetry: Δ &lt; 1e-5
-                </span>
+                {sym_chip_html}
             </div>
         </div>
 
