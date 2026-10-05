@@ -1,1 +1,4 @@
 CONTEXT.md
+notebook_breakdown.md
+__pycache__/
+.pytest_cache/
