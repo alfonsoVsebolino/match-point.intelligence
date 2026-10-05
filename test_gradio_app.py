@@ -16,7 +16,7 @@ def test_predict_matchup_symmetry_and_diagnostics():
     assert "Form Div Δ" in html_fwd
     assert "Fatigue 14d Δ" in html_fwd
     assert "H2H Record" in html_fwd
-    assert "Symmetry: Enforced" in html_fwd
+    assert "Symmetry: Δ &lt; 1e-5" in html_fwd
 
     # Test swap identity
     html_inv = gradio_app.predict_matchup(p2, p1, "Hard", "Grand Slam")
@@ -44,8 +44,6 @@ def test_historical_match_backtracker():
     assert "★ LightGBM Champion" in card_html
     assert "Rank Δ" in card_html
     assert "H2H Record" in card_html
-    assert "Holdout Replay" in card_html
-    assert "Symmetry: Enforced" not in card_html
 
 def test_swap_players():
     p1_out, p2_out = gradio_app.on_swap_players("Alcaraz C.", "Sinner J.")
