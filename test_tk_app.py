@@ -175,6 +175,73 @@ def test_format_key_stats():
     assert res_tied["h2h"]["val"] == "3 - 3"
     assert res_tied["h2h"]["color"] == "#38bdf8"
 
+def test_resolve_split_change():
+    from atp_data import SPLIT_CHOICES
+    from tk_app import resolve_split_change
+    tourns, first_tourn, matches, first_match_id = resolve_split_change(SPLIT_CHOICES[0])
+    assert isinstance(tourns, list) and len(tourns) > 0
+    assert first_tourn == tourns[0]
+    assert isinstance(matches, list) and len(matches) > 0
+    assert matches[0][1] == first_match_id
+
+    # Nonexistent split returns empty lists and strings
+    t_empty, ft_empty, m_empty, mid_empty = resolve_split_change("Nonexistent Split")
+    assert t_empty == []
+    assert ft_empty == ""
+    assert m_empty == []
+    assert mid_empty == ""
+
+def test_resolve_tournament_change():
+    from atp_data import SPLIT_CHOICES, get_tournaments_for_split
+    from tk_app import resolve_tournament_change
+    tourns = get_tournaments_for_split(SPLIT_CHOICES[0])
+    matches, first_match_id = resolve_tournament_change(SPLIT_CHOICES[0], tourns[0])
+    assert isinstance(matches, list) and len(matches) > 0
+    assert matches[0][1] == first_match_id
+
+    # Empty tournament returns empty list and string
+    m_empty, mid_empty = resolve_tournament_change(SPLIT_CHOICES[0], "")
+    assert m_empty == []
+    assert mid_empty == ""
+
+def test_evaluate_historical_outcome():
+    from tk_app import evaluate_historical_outcome
+    # 1. P1 favored, P1 wins -> Accurate
+    res1 = evaluate_historical_outcome("Alcaraz C.", "Alcaraz C.", 0.68)
+    assert res1["correct"] is True
+    assert res1["badge_text"] == "PREDICTION ACCURATE"
+    assert res1["icon"] == "✓"
+    assert res1["badge_border"] == "#10b981"
+    assert res1["badge_text_color"] == "#10b981"
+
+    # 2. P1 favored, P2 wins -> Upset
+    res2 = evaluate_historical_outcome("Alcaraz C.", "Sinner J.", 0.68)
+    assert res2["correct"] is False
+    assert res2["badge_text"] == "UPSET / DIVERGENT"
+    assert res2["icon"] == "✗"
+    assert res2["badge_border"] == "#f43f5e"
+    assert res2["badge_text_color"] == "#f43f5e"
+
+    # 3. P2 favored, P2 wins -> Accurate
+    res3 = evaluate_historical_outcome("Alcaraz C.", "Sinner J.", 0.32)
+    assert res3["correct"] is True
+    assert res3["badge_text"] == "PREDICTION ACCURATE"
+    assert res3["icon"] == "✓"
+
+    # 4. P2 favored, P1 wins -> Upset
+    res4 = evaluate_historical_outcome("Alcaraz C.", "Alcaraz C.", 0.32)
+    assert res4["correct"] is False
+    assert res4["badge_text"] == "UPSET / DIVERGENT"
+    assert res4["icon"] == "✗"
+
+def test_format_bm_odds():
+    from tk_app import format_bm_odds
+    assert format_bm_odds(None) is None
+    res = format_bm_odds(0.625)
+    assert res == {"bm_p1_pct": "62.5%", "bm_p2_pct": "37.5%"}
+    res2 = format_bm_odds(0.50)
+    assert res2 == {"bm_p1_pct": "50.0%", "bm_p2_pct": "50.0%"}
+
 def test_gui_smoke_and_acceptance_criteria():
     import tkinter as tk
     try:
@@ -192,8 +259,9 @@ def test_gui_smoke_and_acceptance_criteria():
         assert app.surface_var.get() == "Hard"
         assert app.series_var.get() == "Grand Slam"
         assert app.roster_var.get() is False
-        assert len(app.notebook.tabs()) == 1
+        assert len(app.notebook.tabs()) == 2
         assert "Upcoming" in app.notebook.tab(0, "text")
+        assert "Historical" in app.notebook.tab(1, "text")
 
         # Swap exchanges players
         app.on_swap()
@@ -283,6 +351,118 @@ def test_gui_smoke_and_acceptance_criteria():
         app.p1_var.set("")
         app.on_predict()
         assert "select both" in app.error_var.get().lower()
+
+        # -------------------------------------------------------------------
+        # Historical Tab Smoke & Acceptance Criteria
+        # -------------------------------------------------------------------
+        from atp_data import SPLIT_CHOICES
+
+        # Baseline checks for historical tab
+        assert app.split_var.get() == SPLIT_CHOICES[0]
+        assert len(app.tourn_combo["values"]) > 0
+        assert len(app.match_combo["values"]) > 0
+
+        # AC 1: Split change refreshes tournaments and matches
+        app.split_var.set(SPLIT_CHOICES[1])
+        app.on_historical_split_change()
+        assert len(app.tourn_combo["values"]) > 0
+        assert app.tourn_var.get() == app.tourn_combo["values"][0]
+        assert len(app.match_combo["values"]) > 0
+
+        # Tournament change refreshes matches
+        tourns = list(app.tourn_combo["values"])
+        if len(tourns) > 1:
+            app.tourn_var.set(tourns[1])
+            app.on_historical_tournament_change()
+            assert len(app.match_combo["values"]) > 0
+
+        # Reset back to split 0 for predictable testing
+        app.split_var.set(SPLIT_CHOICES[0])
+        app.on_historical_split_change()
+
+        # AC 2: Inspect shows model probabilities for stored fixture
+        app.on_inspect()
+        assert app.historical_error_var.get() == ""
+        assert app.last_historical_prediction is not None
+        assert "prob_lgb" in app.last_historical_prediction
+        assert "prob_lr" in app.last_historical_prediction
+        assert app.hist_canvas_bars.has_data is True
+
+        # AC 3: Winner badge reflects LGBM favourite vs actual winner
+        assert app.hist_winner_badge_frame.winfo_manager() != ""
+        assert "Actual Winner:" in app.hist_winner_text.cget("text")
+        status_pill_text = app.hist_status_pill.cget("text")
+        assert ("PREDICTION ACCURATE" in status_pill_text or "UPSET / DIVERGENT" in status_pill_text)
+
+        # 5 key stats delta tiles populated in historical tab
+        for key in ["rank", "swr", "form", "fatigue", "h2h"]:
+            assert key in app.hist_stats_tiles
+            assert len(app.hist_stats_tiles[key]["val"].cget("text")) > 0
+
+        # AC 4: Bookmaker probability shown when available, hidden otherwise
+        mock_with_bm = dict(app.last_historical_prediction, bm_prob=0.62)
+        app.show_historical_prediction(mock_with_bm)
+        assert app.hist_bm_frame.winfo_manager() != ""
+        assert "62.0%" in app.hist_bm_val_label.cget("text")
+
+        mock_without_bm = dict(app.last_historical_prediction, bm_prob=None)
+        app.show_historical_prediction(mock_without_bm)
+        assert app.hist_bm_frame.winfo_manager() == ""
+
+        # Winner badge status verification: accurate vs upset
+        mock_accurate = dict(
+            app.last_historical_prediction,
+            p1="Player A",
+            actual_winner="Player A",
+            prob_lgb=0.65,
+            score_str="6-4 6-3"
+        )
+        app.show_historical_prediction(mock_accurate)
+        assert "PREDICTION ACCURATE" in app.hist_status_pill.cget("text")
+        assert app.hist_winner_icon.cget("text") == "✓"
+        assert app.hist_score_text.winfo_manager() != ""
+        assert "6-4 6-3" in app.hist_score_text.cget("text")
+
+        mock_upset = dict(
+            app.last_historical_prediction,
+            p1="Player A",
+            actual_winner="Player B",
+            prob_lgb=0.65,
+            score_str=None
+        )
+        app.show_historical_prediction(mock_upset)
+        assert "UPSET / DIVERGENT" in app.hist_status_pill.cget("text")
+        assert app.hist_winner_icon.cget("text") == "✗"
+        assert app.hist_score_text.winfo_manager() == ""
+
+        # Divergence banner in historical tab
+        mock_hist_div = dict(app.last_historical_prediction, is_divergent=True, div_delta=0.20)
+        app.show_historical_prediction(mock_hist_div)
+        assert app.hist_is_divergent_visible is True
+        assert app.hist_divergence_frame.winfo_manager() != ""
+        assert "20.0%" in app.hist_divergence_label.cget("text")
+
+        mock_hist_nodiv = dict(app.last_historical_prediction, is_divergent=False, div_delta=0.05)
+        app.show_historical_prediction(mock_hist_nodiv)
+        assert app.hist_is_divergent_visible is False
+        assert app.hist_divergence_frame.winfo_manager() == ""
+
+        # AC 5: Empty/invalid selection shows clear message
+        app.match_var.set("")
+        app.on_inspect()
+        assert "valid tournament and matchup" in app.historical_error_var.get().lower()
+        assert app.hist_error_frame.winfo_manager() != ""
+        assert app.hist_winner_badge_frame.winfo_manager() == ""
+        assert app.hist_canvas_bars.winfo_manager() == ""
+
+        # show_historical_error hides diagnostic card elements
+        app.show_historical_error("Manual test error message")
+        assert "Manual test error message" in app.historical_error_var.get()
+        assert app.hist_error_frame.winfo_manager() != ""
+        assert app.hist_stats_frame.winfo_manager() == ""
+        assert app.hist_surface_accent_strip.winfo_manager() == ""
+        assert app.hist_header_frame.winfo_manager() == ""
+
 
     finally:
         root.destroy()

@@ -3,6 +3,7 @@
 import sys
 import tkinter as tk
 from tkinter import ttk
+from atp_data import SPLIT_CHOICES, get_tournaments_for_split, get_matches_for_tournament
 from atp_engine import DEFAULT_P1, DEFAULT_P2, active_players, all_players
 import atp_service
 
@@ -32,6 +33,12 @@ PALETTE = {
     "bar_lgb": "#14b8a6",
     "bar_lr": "#38bdf8",
     "bar_empty": "#334155",
+    "correct_bg": "#064e3b",
+    "correct_border": "#10b981",
+    "correct_text": "#10b981",
+    "upset_bg": "#4c0519",
+    "upset_border": "#f43f5e",
+    "upset_text": "#f43f5e",
 }
 
 SURFACE_COLORS = {
@@ -44,6 +51,48 @@ SURFACE_COLORS = {
 # ---------------------------------------------------------------------------
 # Pure Logic Functions
 # ---------------------------------------------------------------------------
+def resolve_split_change(new_split: str) -> tuple[list[str], str, list[tuple[str, str]], str]:
+    """Resolves tournaments and default match selections on split change."""
+    if new_split not in SPLIT_CHOICES:
+        return [], "", [], ""
+    tourns = get_tournaments_for_split(new_split)
+    first_tourn = tourns[0] if tourns else ""
+    matches = get_matches_for_tournament(new_split, first_tourn) if first_tourn else []
+    first_match_id = matches[0][1] if matches else ""
+    return tourns, first_tourn, matches, first_match_id
+
+def resolve_tournament_change(cur_split: str, tourn_name: str) -> tuple[list[tuple[str, str]], str]:
+    """Resolves matches and default match id on tournament change."""
+    if cur_split not in SPLIT_CHOICES or not tourn_name:
+        return [], ""
+    matches = get_matches_for_tournament(cur_split, tourn_name)
+    first_match_id = matches[0][1] if matches else ""
+    return matches, first_match_id
+
+def evaluate_historical_outcome(p1: str, actual_winner: str, prob_lgb: float) -> dict:
+    """Evaluates whether LGBM favourite matched actual winner and returns badge styling."""
+    model_favors_p1 = float(prob_lgb) >= 0.5
+    actual_p1_won = (actual_winner == p1)
+    correct = (model_favors_p1 == actual_p1_won)
+    return {
+        "correct": correct,
+        "badge_text": "PREDICTION ACCURATE" if correct else "UPSET / DIVERGENT",
+        "badge_bg": PALETTE["correct_bg"] if correct else PALETTE["upset_bg"],
+        "badge_border": PALETTE["correct_border"] if correct else PALETTE["upset_border"],
+        "badge_text_color": PALETTE["correct_text"] if correct else PALETTE["upset_text"],
+        "icon": "✓" if correct else "✗",
+    }
+
+def format_bm_odds(bm_prob: float | None) -> dict[str, str] | None:
+    """Formats market implied bookmaker odds into percentage strings or None."""
+    if bm_prob is None:
+        return None
+    bm_p1 = float(bm_prob)
+    bm_p2 = float(1.0 - bm_prob)
+    return {
+        "bm_p1_pct": f"{bm_p1 * 100:.1f}%",
+        "bm_p2_pct": f"{bm_p2 * 100:.1f}%",
+    }
 def resolve_swap(cur_p1: str, cur_p2: str) -> tuple[str, str]:
     """Exchanges current player 1 and player 2 selections."""
     return cur_p2, cur_p1
@@ -270,6 +319,57 @@ class ProbabilityBarsCanvas(tk.Canvas):
             )
 
 
+class BookmakerBarCanvas(tk.Canvas):
+    """Canvas drawing horizontal market implied probability bar."""
+
+    def __init__(self, parent, **kwargs):
+        super().__init__(
+            parent,
+            height=6,
+            bg=PALETTE["card_bg"],
+            highlightthickness=0,
+            bd=0,
+            **kwargs
+        )
+        self.bm_prob = 0.5
+        self.has_data = False
+        self.bind("<Configure>", self._on_configure)
+
+    def set_prob(self, bm_prob: float):
+        self.bm_prob = max(0.0, min(1.0, float(bm_prob)))
+        self.has_data = True
+        self.redraw()
+
+    def _on_configure(self, event=None):
+        if self.has_data:
+            self.redraw()
+
+    def redraw(self):
+        self.delete("all")
+        if not self.has_data:
+            return
+        w = self.winfo_width()
+        if w <= 20:
+            w = 580
+        pad_x = 4
+        bar_w = max(20, w - 2 * pad_x)
+        w1 = max(0, min(bar_w, int(bar_w * self.bm_prob)))
+
+        self.create_rectangle(
+            pad_x, 0,
+            pad_x + bar_w, 6,
+            fill=PALETTE["bar_empty"],
+            outline=""
+        )
+        if w1 > 0:
+            self.create_rectangle(
+                pad_x, 0,
+                pad_x + w1, 6,
+                fill=PALETTE["text_muted"],
+                outline=""
+            )
+
+
 # ---------------------------------------------------------------------------
 # Application Shell
 # ---------------------------------------------------------------------------
@@ -292,7 +392,7 @@ class App:
         self.font_sans = resolve_font_family(self.root, "sans")
         self.font_mono = resolve_font_family(self.root, "mono")
 
-        # Variables
+        # Upcoming tab variables
         self.p1_var = tk.StringVar(value=DEFAULT_P1)
         self.p2_var = tk.StringVar(value=DEFAULT_P2)
         self.surface_var = tk.StringVar(value=DEFAULT_SURFACE)
@@ -300,6 +400,20 @@ class App:
         self.roster_var = tk.BooleanVar(value=False)
         self.error_var = tk.StringVar(value="")
         self.last_prediction = None
+
+        # Historical tab variables
+        default_split = SPLIT_CHOICES[0]
+        init_tourns = get_tournaments_for_split(default_split)
+        init_tourn = init_tourns[0] if init_tourns else ""
+        init_matches = get_matches_for_tournament(default_split, init_tourn) if init_tourn else []
+        self.split_var = tk.StringVar(value=default_split)
+        self.tourn_var = tk.StringVar(value=init_tourn)
+        self.historical_matches = init_matches
+        init_match_label = init_matches[0][0] if init_matches else ""
+        self.match_var = tk.StringVar(value=init_match_label)
+        self.historical_match_id = init_matches[0][1] if init_matches else ""
+        self.historical_error_var = tk.StringVar(value="")
+        self.last_historical_prediction = None
 
         self._configure_styles()
         self._build_header()
@@ -455,10 +569,13 @@ class App:
     def _build_notebook(self):
         self.notebook = ttk.Notebook(self.root)
         self.tab_upcoming = tk.Frame(self.notebook, bg=PALETTE["bg"], padx=4, pady=4)
+        self.tab_historical = tk.Frame(self.notebook, bg=PALETTE["bg"], padx=4, pady=4)
         self.notebook.add(self.tab_upcoming, text="⚡ Upcoming Predictor")
+        self.notebook.add(self.tab_historical, text="🔍 Historical Backtracker")
         self.notebook.pack(fill="both", expand=True, padx=20, pady=(0, 16))
 
         self._build_upcoming_tab()
+        self._build_historical_tab()
 
     def _build_upcoming_tab(self):
         # 1. Controls Card
@@ -719,6 +836,311 @@ class App:
         self.placeholder_label.pack()
         self.placeholder_frame.pack(fill="both", expand=True)
 
+    def _build_historical_tab(self):
+        # 1. Controls Card
+        card_hist_controls = tk.Frame(
+            self.tab_historical,
+            bg=PALETTE["card_bg"],
+            highlightbackground=PALETTE["border"],
+            highlightthickness=1,
+            padx=18,
+            pady=16
+        )
+        card_hist_controls.pack(fill="x", pady=(0, 14))
+
+        # Row 0: Split and Tournament selection
+        row0 = tk.Frame(card_hist_controls, bg=PALETTE["card_bg"])
+        row0.pack(fill="x", pady=(0, 12))
+        row0.columnconfigure(0, weight=1)
+        row0.columnconfigure(1, weight=1)
+
+        split_box = tk.Frame(row0, bg=PALETTE["card_bg"])
+        split_box.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        tk.Label(split_box, text="DATASET SPLIT", bg=PALETTE["card_bg"], fg=PALETTE["text_muted"], font=(self.font_sans, 8, "bold")).pack(anchor="w", pady=(0, 4))
+        self.split_combo = ttk.Combobox(split_box, textvariable=self.split_var, values=SPLIT_CHOICES, state="readonly", font=(self.font_sans, 10))
+        self.split_combo.pack(fill="x")
+
+        tourn_box = tk.Frame(row0, bg=PALETTE["card_bg"])
+        tourn_box.grid(row=0, column=1, sticky="ew", padx=(6, 0))
+        tk.Label(tourn_box, text="TOURNAMENT", bg=PALETTE["card_bg"], fg=PALETTE["text_muted"], font=(self.font_sans, 8, "bold")).pack(anchor="w", pady=(0, 4))
+        init_tourns = get_tournaments_for_split(self.split_var.get())
+        self.tourn_combo = ttk.Combobox(tourn_box, textvariable=self.tourn_var, values=init_tourns, state="readonly", font=(self.font_sans, 10))
+        self.tourn_combo.pack(fill="x")
+
+        # Row 1: Match selection and Inspect button
+        row1 = tk.Frame(card_hist_controls, bg=PALETTE["card_bg"])
+        row1.pack(fill="x")
+        row1.columnconfigure(0, weight=4)
+        row1.columnconfigure(1, weight=1)
+
+        match_box = tk.Frame(row1, bg=PALETTE["card_bg"])
+        match_box.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        tk.Label(match_box, text="MATCH FIXTURE & OUTCOME", bg=PALETTE["card_bg"], fg=PALETTE["text_muted"], font=(self.font_sans, 8, "bold")).pack(anchor="w", pady=(0, 4))
+        match_labels = [m[0] for m in self.historical_matches]
+        self.match_combo = ttk.Combobox(match_box, textvariable=self.match_var, values=match_labels, state="readonly", font=(self.font_sans, 10))
+        self.match_combo.pack(fill="x")
+
+        btn_box = tk.Frame(row1, bg=PALETTE["card_bg"])
+        btn_box.grid(row=0, column=1, sticky="se", padx=(6, 0), pady=(0, 1))
+        self.inspect_btn = ttk.Button(btn_box, text="🔍 Inspect & Backtrack", style="Primary.TButton", command=self.on_inspect)
+        self.inspect_btn.pack(fill="x")
+
+        # Bind cascading changes
+        self.split_combo.bind("<<ComboboxSelected>>", self.on_historical_split_change)
+        self.tourn_combo.bind("<<ComboboxSelected>>", self.on_historical_tournament_change)
+
+        # 2. Results Card
+        self.card_hist_results = tk.Frame(
+            self.tab_historical,
+            bg=PALETTE["card_bg"],
+            highlightbackground=PALETTE["border"],
+            highlightthickness=1,
+            padx=18,
+            pady=16
+        )
+        self.card_hist_results.pack(fill="both", expand=True)
+
+        card_title = tk.Label(
+            self.card_hist_results,
+            text="HISTORICAL FIXTURE DIAGNOSTICS & VERIFICATION",
+            bg=PALETTE["card_bg"],
+            fg=PALETTE["text_dim"],
+            font=(self.font_mono, 9, "bold")
+        )
+        card_title.pack(anchor="w", pady=(0, 10))
+
+        # Error banner
+        self.hist_error_frame = tk.Frame(
+            self.card_hist_results,
+            bg=PALETTE["error_bg"],
+            highlightbackground=PALETTE["error_text"],
+            highlightthickness=1,
+            padx=14,
+            pady=10
+        )
+        self.hist_error_label = tk.Label(
+            self.hist_error_frame,
+            textvariable=self.historical_error_var,
+            bg=PALETTE["error_bg"],
+            fg="#fb7185",
+            font=(self.font_sans, 10, "bold"),
+            wraplength=600,
+            justify="left"
+        )
+        self.hist_error_label.pack(anchor="w")
+
+        # Surface accent strip
+        self.hist_surface_accent_strip = tk.Frame(self.card_hist_results, height=3, bg=PALETTE["accent"])
+
+        # Header frame
+        self.hist_header_frame = tk.Frame(self.card_hist_results, bg=PALETTE["card_bg"])
+        hdr_left = tk.Frame(self.hist_header_frame, bg=PALETTE["card_bg"])
+        hdr_left.pack(side="left")
+
+        self.hist_matchup_label = tk.Label(
+            hdr_left,
+            text="",
+            bg=PALETTE["card_bg"],
+            fg="#ffffff",
+            font=(self.font_sans, 13, "bold")
+        )
+        self.hist_matchup_label.pack(anchor="w")
+
+        self.hist_subtitle_label = tk.Label(
+            hdr_left,
+            text="",
+            bg=PALETTE["card_bg"],
+            fg=PALETTE["text_muted"],
+            font=(self.font_mono, 9)
+        )
+        self.hist_subtitle_label.pack(anchor="w")
+
+        self.hist_badges_frame = tk.Frame(self.hist_header_frame, bg=PALETTE["card_bg"])
+        self.hist_badges_frame.pack(side="right")
+
+        self.hist_surface_badge = tk.Label(
+            self.hist_badges_frame,
+            text="",
+            bg=PALETTE["border"],
+            fg=PALETTE["accent"],
+            font=(self.font_mono, 9, "bold"),
+            padx=8,
+            pady=2
+        )
+        self.hist_surface_badge.pack(side="left", padx=(0, 6))
+
+        self.hist_series_badge = tk.Label(
+            self.hist_badges_frame,
+            text="",
+            bg=PALETTE["border"],
+            fg=PALETTE["text"],
+            font=(self.font_mono, 9),
+            padx=8,
+            pady=2
+        )
+        self.hist_series_badge.pack(side="left")
+
+        # Winner badge frame
+        self.hist_winner_badge_frame = tk.Frame(
+            self.card_hist_results,
+            bg=PALETTE["correct_bg"],
+            highlightbackground=PALETTE["correct_border"],
+            highlightthickness=1,
+            padx=14,
+            pady=10
+        )
+        self.hist_winner_badge_left = tk.Frame(self.hist_winner_badge_frame, bg=PALETTE["correct_bg"])
+        self.hist_winner_badge_left.pack(side="left", fill="x", expand=True)
+
+        self.hist_winner_icon = tk.Label(
+            self.hist_winner_badge_left,
+            text="✓",
+            bg=PALETTE["correct_bg"],
+            fg=PALETTE["correct_text"],
+            font=(self.font_sans, 14, "bold")
+        )
+        self.hist_winner_icon.pack(side="left", padx=(0, 8))
+
+        self.hist_winner_text = tk.Label(
+            self.hist_winner_badge_left,
+            text="",
+            bg=PALETTE["correct_bg"],
+            fg="#ffffff",
+            font=(self.font_sans, 10, "bold")
+        )
+        self.hist_winner_text.pack(side="left")
+
+        self.hist_score_text = tk.Label(
+            self.hist_winner_badge_left,
+            text="",
+            bg=PALETTE["correct_bg"],
+            fg=PALETTE["text_muted"],
+            font=(self.font_mono, 9)
+        )
+        self.hist_score_text.pack(side="left", padx=(10, 0))
+
+        self.hist_winner_badge_right = tk.Frame(self.hist_winner_badge_frame, bg=PALETTE["correct_bg"])
+        self.hist_winner_badge_right.pack(side="right")
+
+        self.hist_status_pill = tk.Label(
+            self.hist_winner_badge_right,
+            text="",
+            bg=PALETTE["correct_border"],
+            fg="#0b0f19",
+            font=(self.font_mono, 9, "bold"),
+            padx=8,
+            pady=2
+        )
+        self.hist_status_pill.pack()
+
+        # Divergence warning banner
+        self.hist_divergence_frame = tk.Frame(
+            self.card_hist_results,
+            bg="#241b0a",
+            highlightbackground="#f59e0b",
+            highlightthickness=1,
+            padx=12,
+            pady=8
+        )
+        self.hist_divergence_icon = tk.Label(
+            self.hist_divergence_frame,
+            text="⚠️",
+            bg="#241b0a",
+            fg="#f59e0b",
+            font=(self.font_sans, 11)
+        )
+        self.hist_divergence_icon.pack(side="left", padx=(0, 8))
+        self.hist_divergence_label = tk.Label(
+            self.hist_divergence_frame,
+            text="",
+            bg="#241b0a",
+            fg="#fde68a",
+            font=(self.font_sans, 9),
+            wraplength=620,
+            justify="left"
+        )
+        self.hist_divergence_label.pack(side="left", fill="x", expand=True)
+        self.hist_is_divergent_visible = False
+
+        # Bookmaker implied odds section
+        self.hist_bm_frame = tk.Frame(self.card_hist_results, bg=PALETTE["card_bg"])
+        bm_hdr = tk.Frame(self.hist_bm_frame, bg=PALETTE["card_bg"])
+        bm_hdr.pack(fill="x", pady=(0, 4))
+        tk.Label(
+            bm_hdr,
+            text="Market Implied (Bookmaker Odds)",
+            bg=PALETTE["card_bg"],
+            fg=PALETTE["text_muted"],
+            font=(self.font_mono, 9)
+        ).pack(side="left")
+        self.hist_bm_val_label = tk.Label(
+            bm_hdr,
+            text="",
+            bg=PALETTE["card_bg"],
+            fg="#cbd5e1",
+            font=(self.font_mono, 9, "bold")
+        )
+        self.hist_bm_val_label.pack(side="right")
+        self.hist_bm_canvas = BookmakerBarCanvas(self.hist_bm_frame)
+        self.hist_bm_canvas.pack(fill="x")
+
+        # Dual model probability bars
+        self.hist_canvas_bars = ProbabilityBarsCanvas(
+            self.card_hist_results,
+            font_sans=self.font_sans,
+            font_mono=self.font_mono
+        )
+
+        # 5 Key Delta Summary Tiles Frame
+        self.hist_stats_frame = tk.Frame(
+            self.card_hist_results,
+            bg="#0b0f19",
+            highlightbackground=PALETTE["border"],
+            highlightthickness=1,
+            padx=10,
+            pady=10
+        )
+        for col in range(5):
+            self.hist_stats_frame.columnconfigure(col, weight=1)
+
+        self.hist_stats_tiles = {}
+        for i, key in enumerate(["rank", "swr", "form", "fatigue", "h2h"]):
+            tile = tk.Frame(self.hist_stats_frame, bg="#0b0f19")
+            tile.grid(row=0, column=i, sticky="nsew", padx=4)
+            lbl_title = tk.Label(
+                tile,
+                text="",
+                bg="#0b0f19",
+                fg=PALETTE["text_dim"],
+                font=(self.font_mono, 8, "bold")
+            )
+            lbl_title.pack()
+            lbl_val = tk.Label(
+                tile,
+                text="",
+                bg="#0b0f19",
+                fg=PALETTE["text"],
+                font=(self.font_mono, 12, "bold")
+            )
+            lbl_val.pack(pady=(2, 0))
+            self.hist_stats_tiles[key] = {
+                "frame": tile,
+                "title": lbl_title,
+                "val": lbl_val,
+            }
+
+        # Placeholder
+        self.hist_placeholder_frame = tk.Frame(self.card_hist_results, bg=PALETTE["card_bg"], pady=30)
+        self.hist_placeholder_label = tk.Label(
+            self.hist_placeholder_frame,
+            text="Ready. Select split, tournament, and matchup, then click '🔍 Inspect & Backtrack'.",
+            bg=PALETTE["card_bg"],
+            fg=PALETTE["text_dim"],
+            font=(self.font_sans, 10, "italic")
+        )
+        self.hist_placeholder_label.pack()
+        self.hist_placeholder_frame.pack(fill="both", expand=True)
+
     # -----------------------------------------------------------------------
     # Event Handlers
     # -----------------------------------------------------------------------
@@ -825,6 +1247,184 @@ class App:
                 self.stats_tiles[k]["title"].config(text=item["label"].upper())
                 self.stats_tiles[k]["val"].config(text=item["val"], fg=item["color"])
         self.stats_frame.pack(fill="x", pady=(8, 0))
+
+    def on_historical_split_change(self, event=None):
+        new_split = self.split_var.get()
+        tourns, first_tourn, matches, first_match_id = resolve_split_change(new_split)
+        self.tourn_combo["values"] = tourns
+        self.tourn_var.set(first_tourn)
+        self.historical_matches = matches
+        match_labels = [m[0] for m in matches]
+        self.match_combo["values"] = match_labels
+        self.match_var.set(match_labels[0] if match_labels else "")
+        self.historical_match_id = first_match_id
+
+    def on_historical_tournament_change(self, event=None):
+        cur_split = self.split_var.get()
+        tourn_name = self.tourn_var.get()
+        matches, first_match_id = resolve_tournament_change(cur_split, tourn_name)
+        self.historical_matches = matches
+        match_labels = [m[0] for m in matches]
+        self.match_combo["values"] = match_labels
+        self.match_var.set(match_labels[0] if match_labels else "")
+        self.historical_match_id = first_match_id
+
+    def on_inspect(self):
+        cur_split = self.split_var.get().strip()
+        tourn_name = self.tourn_var.get().strip()
+        match_label = self.match_var.get().strip()
+
+        match_id = ""
+        if match_label and self.historical_matches:
+            for label, mid in self.historical_matches:
+                if label == match_label:
+                    match_id = mid
+                    break
+            if not match_id and self.match_combo.current() >= 0:
+                idx = self.match_combo.current()
+                if idx < len(self.historical_matches):
+                    match_id = self.historical_matches[idx][1]
+
+        if not match_id or not tourn_name or not cur_split:
+            self.show_historical_error("Select a valid tournament and matchup to inspect.")
+            return
+
+        res = atp_service.inspect(cur_split, tourn_name, match_id)
+        self.last_historical_prediction = res
+
+        err = format_error_text(res)
+        if err:
+            self.show_historical_error(err)
+        else:
+            self.show_historical_prediction(res)
+
+    def reset_historical_card(self):
+        self.historical_error_var.set("")
+        self.hist_is_divergent_visible = False
+        self.hist_surface_accent_strip.pack_forget()
+        self.hist_header_frame.pack_forget()
+        self.hist_winner_badge_frame.pack_forget()
+        self.hist_bm_frame.pack_forget()
+        self.hist_divergence_frame.pack_forget()
+        self.hist_canvas_bars.pack_forget()
+        self.hist_stats_frame.pack_forget()
+        self.hist_error_frame.pack_forget()
+        self.card_hist_results.config(highlightbackground=PALETTE["border"])
+        self.hist_placeholder_frame.pack(fill="both", expand=True)
+
+    def show_historical_error(self, message: str):
+        self.historical_error_var.set(f"⚠️  {message}")
+        self.hist_is_divergent_visible = False
+        self.hist_placeholder_frame.pack_forget()
+        self.hist_surface_accent_strip.pack_forget()
+        self.hist_header_frame.pack_forget()
+        self.hist_winner_badge_frame.pack_forget()
+        self.hist_bm_frame.pack_forget()
+        self.hist_divergence_frame.pack_forget()
+        self.hist_canvas_bars.pack_forget()
+        self.hist_stats_frame.pack_forget()
+        self.card_hist_results.config(highlightbackground=PALETTE["border"])
+        self.hist_error_frame.pack(fill="x", pady=(0, 12))
+
+    def show_historical_prediction(self, res: dict):
+        self.historical_error_var.set("")
+        self.hist_error_frame.pack_forget()
+        self.hist_placeholder_frame.pack_forget()
+
+        p1 = res.get("p1", "")
+        p2 = res.get("p2", "")
+        surface = res.get("surface", "Hard")
+        series = res.get("series", "Grand Slam")
+        prob_lgb = float(res.get("prob_lgb", 0.5))
+        prob_lr = float(res.get("prob_lr", 0.5))
+        actual_winner = res.get("actual_winner", "")
+        score_str = res.get("score_str", "")
+        date_str = res.get("date_str", "")
+        round_name = res.get("round_name", "")
+        tournament = res.get("tournament", "")
+        bm_prob = res.get("bm_prob", None)
+        key_stats = res.get("key_stats", {})
+        div_delta = float(res.get("div_delta", abs(prob_lgb - prob_lr)))
+        is_divergent = bool(res.get("is_divergent", div_delta > 0.15))
+
+        # Accent strip & card highlight
+        surf_color = resolve_surface_color(surface)
+        self.hist_surface_accent_strip.config(bg=surf_color)
+        self.card_hist_results.config(highlightbackground=surf_color)
+        self.hist_surface_accent_strip.pack(fill="x", pady=(0, 10))
+
+        # Matchup header
+        self.hist_matchup_label.config(text=f"{p1}  vs  {p2}")
+        round_part = f" ({round_name})" if round_name else ""
+        sub_txt = f"{date_str} • {tournament}{round_part} • {surface}" if tournament and date_str else f"{series} • {surface} Court"
+        self.hist_subtitle_label.config(text=sub_txt)
+        self.hist_surface_badge.config(text=surface, fg=surf_color)
+        self.hist_series_badge.config(text=series)
+        self.hist_header_frame.pack(fill="x", pady=(0, 10))
+
+        # Winner badge
+        outcome = evaluate_historical_outcome(p1, actual_winner, prob_lgb)
+        self.hist_winner_badge_frame.config(
+            bg=outcome["badge_bg"],
+            highlightbackground=outcome["badge_border"],
+        )
+        self.hist_winner_badge_left.config(bg=outcome["badge_bg"])
+        self.hist_winner_badge_right.config(bg=outcome["badge_bg"])
+        self.hist_winner_icon.config(
+            text=outcome["icon"],
+            bg=outcome["badge_bg"],
+            fg=outcome["badge_text_color"],
+        )
+        self.hist_winner_text.config(
+            text=f"Actual Winner: {actual_winner}",
+            bg=outcome["badge_bg"],
+        )
+        if score_str:
+            self.hist_score_text.config(
+                text=f"Score: {score_str}",
+                bg=outcome["badge_bg"],
+            )
+            self.hist_score_text.pack(side="left", padx=(10, 0))
+        else:
+            self.hist_score_text.pack_forget()
+
+        self.hist_status_pill.config(
+            text=f"{outcome['icon']} {outcome['badge_text']}",
+            bg=outcome["badge_border"],
+            fg="#0b0f19",
+        )
+        self.hist_winner_badge_frame.pack(fill="x", pady=(0, 10))
+
+        # Divergence warning banner
+        is_div, div_msg = resolve_divergence_status(is_divergent, div_delta)
+        self.hist_is_divergent_visible = is_div
+        if is_div:
+            self.hist_divergence_label.config(text=div_msg)
+            self.hist_divergence_frame.pack(fill="x", pady=(0, 10))
+        else:
+            self.hist_divergence_frame.pack_forget()
+
+        # Bookmaker implied odds
+        bm_data = format_bm_odds(bm_prob)
+        if bm_data is not None:
+            self.hist_bm_val_label.config(text=f"{p1}: {bm_data['bm_p1_pct']}   |   {p2}: {bm_data['bm_p2_pct']}")
+            self.hist_bm_canvas.set_prob(bm_prob)
+            self.hist_bm_frame.pack(fill="x", pady=(0, 10))
+        else:
+            self.hist_bm_frame.pack_forget()
+
+        # Dual model probability bars
+        self.hist_canvas_bars.set_data(p1, p2, prob_lgb, prob_lr)
+        self.hist_canvas_bars.pack(fill="x", pady=(0, 8))
+
+        # Key stats tiles
+        formatted_stats = format_key_stats(key_stats)
+        for item in formatted_stats:
+            k = item["id"]
+            if k in self.hist_stats_tiles:
+                self.hist_stats_tiles[k]["title"].config(text=item["label"].upper())
+                self.hist_stats_tiles[k]["val"].config(text=item["val"], fg=item["color"])
+        self.hist_stats_frame.pack(fill="x", pady=(8, 0))
 
     def mainloop(self):
         self.root.mainloop()
