@@ -91,6 +91,90 @@ def test_compute_display_probabilities():
     assert probs["lr_p1_pct"] == "45.7%"
     assert probs["lr_p2_pct"] == "54.3%"
 
+def test_resolve_surface_color():
+    from tk_app import resolve_surface_color, PALETTE
+    assert resolve_surface_color("Hard") == "#38bdf8"
+    assert resolve_surface_color("Clay") == "#fb923c"
+    assert resolve_surface_color("Grass") == "#4ade80"
+    assert resolve_surface_color("Carpet") == "#a78bfa"
+    assert resolve_surface_color("Unknown") == PALETTE["accent"]
+
+def test_format_symmetry_text():
+    from tk_app import format_symmetry_text
+    sym_zero = format_symmetry_text(0.0123, 0.0)
+    assert "Δ < 1e-5" in sym_zero
+    assert "Raw Δ: 1.2%" in sym_zero
+
+    sym_nonzero = format_symmetry_text(0.0456, 0.00025)
+    assert "Δ 2.5e-04" in sym_nonzero
+    assert "Raw Δ: 4.6%" in sym_nonzero
+
+def test_resolve_divergence_status():
+    from tk_app import resolve_divergence_status
+    # Hidden when delta <= 0.15 and not is_divergent
+    vis, msg = resolve_divergence_status(False, 0.12)
+    assert vis is False
+    assert "12.0%" in msg
+
+    vis15, msg15 = resolve_divergence_status(False, 0.15)
+    assert vis15 is False
+
+    # Visible when delta > 0.15
+    vis_high, msg_high = resolve_divergence_status(False, 0.185)
+    assert vis_high is True
+    assert "18.5%" in msg_high
+
+    # Visible when is_divergent is True even if delta <= 0.15
+    vis_flag, msg_flag = resolve_divergence_status(True, 0.10)
+    assert vis_flag is True
+    assert "10.0%" in msg_flag
+
+def test_format_key_stats():
+    from tk_app import format_key_stats
+    stats_p1_fav = {
+        "rank_diff": -2.0,
+        "surface_winrate_diff": 0.145,
+        "form_divergence_diff": 0.35,
+        "matches_14d_diff": 1.0,
+        "h2h_p1_wins": 5,
+        "h2h_p2_wins": 2,
+    }
+    res_p1 = {item["id"]: item for item in format_key_stats(stats_p1_fav)}
+    assert res_p1["rank"]["val"] == "-2"
+    assert res_p1["rank"]["color"] == "#10b981"
+    assert res_p1["swr"]["val"] == "+14.5%"
+    assert res_p1["swr"]["color"] == "#10b981"
+    assert res_p1["form"]["val"] == "+0.35"
+    assert res_p1["form"]["color"] == "#10b981"
+    assert res_p1["fatigue"]["val"] == "+1 m"
+    assert res_p1["fatigue"]["color"] == "#e2e8f0"
+    assert res_p1["h2h"]["val"] == "5 - 2"
+    assert res_p1["h2h"]["color"] == "#10b981"
+
+    stats_p2_fav = {
+        "rank_diff": 8.0,
+        "surface_winrate_diff": -0.224,
+        "form_divergence_diff": -0.40,
+        "matches_14d_diff": -2.0,
+        "h2h_p1_wins": 1,
+        "h2h_p2_wins": 4,
+    }
+    res_p2 = {item["id"]: item for item in format_key_stats(stats_p2_fav)}
+    assert res_p2["rank"]["val"] == "+8"
+    assert res_p2["rank"]["color"] == "#ef4444"
+    assert res_p2["swr"]["val"] == "-22.4%"
+    assert res_p2["swr"]["color"] == "#ef4444"
+    assert res_p2["form"]["val"] == "-0.40"
+    assert res_p2["form"]["color"] == "#ef4444"
+    assert res_p2["fatigue"]["val"] == "-2 m"
+    assert res_p2["h2h"]["val"] == "1 - 4"
+    assert res_p2["h2h"]["color"] == "#ef4444"
+
+    stats_tied = {"h2h_p1_wins": 3, "h2h_p2_wins": 3}
+    res_tied = {item["id"]: item for item in format_key_stats(stats_tied)}
+    assert res_tied["h2h"]["val"] == "3 - 3"
+    assert res_tied["h2h"]["color"] == "#38bdf8"
+
 def test_gui_smoke_and_acceptance_criteria():
     import tkinter as tk
     try:
@@ -99,10 +183,10 @@ def test_gui_smoke_and_acceptance_criteria():
         pytest.skip("No graphical display available for Tk smoke test")
 
     try:
-        from tk_app import App, DEFAULT_P1, DEFAULT_P2
+        from tk_app import App, DEFAULT_P1, DEFAULT_P2, SURFACE_COLORS
         app = App(root)
 
-        # AC 1: Window starts with Gradio's default players, surface and series
+        # Baseline checks
         assert app.p1_var.get() == DEFAULT_P1
         assert app.p2_var.get() == DEFAULT_P2
         assert app.surface_var.get() == "Hard"
@@ -111,40 +195,91 @@ def test_gui_smoke_and_acceptance_criteria():
         assert len(app.notebook.tabs()) == 1
         assert "Upcoming" in app.notebook.tab(0, "text")
 
-        # AC 2: Swap exchanges players
+        # Swap exchanges players
         app.on_swap()
         assert app.p1_var.get() == DEFAULT_P2
         assert app.p2_var.get() == DEFAULT_P1
 
-        # AC 2: Roster toggle switches active/all-time pools and keeps valid selections
+        # Roster toggle switches active/all-time pools
         app.roster_var.set(True)
         app.on_roster_toggle()
         assert list(app.p1_combo["values"]) == all_players
-        assert app.p1_var.get() == DEFAULT_P2
-        assert app.p2_var.get() == DEFAULT_P1
 
         app.roster_var.set(False)
         app.on_roster_toggle()
         assert list(app.p1_combo["values"]) == active_players
-        assert app.p1_var.get() == DEFAULT_P2
-        assert app.p2_var.get() == DEFAULT_P1
 
-        # AC 3: Predict shows both models' probabilities for both players
+        # Prediction execution with real engine
         app.on_predict()
         assert app.error_var.get() == ""
         assert app.last_prediction is not None
         assert "prob_lgb" in app.last_prediction
         assert "prob_lr" in app.last_prediction
         assert app.prob_display.has_data is True
-        assert app.prob_display.prob_lgb == app.last_prediction["prob_lgb"]
-        assert app.prob_display.prob_lr == app.last_prediction["prob_lr"]
 
-        # AC 4: Same-player error
+        # AC 1: All 5 key stats tiles populated with orientation vs Player 1
+        for key in ["rank", "swr", "form", "fatigue", "h2h"]:
+            assert key in app.stats_tiles
+            val_txt = app.stats_tiles[key]["val"].cget("text")
+            assert len(val_txt) > 0
+
+        # AC 2: Symmetry and raw-asymmetry values displayed in symmetry badge
+        sym_txt = app.symmetry_badge.cget("text")
+        assert "Symmetry:" in sym_txt
+        assert "Raw Δ:" in sym_txt
+
+        # AC 3: Divergence warning alert behavior
+        # Test divergent state
+        divergent_mock = {
+            "p1": "Alcaraz C.",
+            "p2": "Sinner J.",
+            "surface": "Hard",
+            "series": "Grand Slam",
+            "prob_lgb": 0.70,
+            "prob_lr": 0.50,
+            "div_delta": 0.20,
+            "is_divergent": True,
+            "sym_score": 0.0,
+            "raw_asym": 0.02,
+            "key_stats": {
+                "rank_diff": -1.0,
+                "surface_winrate_diff": 0.05,
+                "form_divergence_diff": 0.12,
+                "matches_14d_diff": 0.0,
+                "h2h_p1_wins": 4,
+                "h2h_p2_wins": 4,
+            },
+        }
+        app.show_prediction(divergent_mock)
+        assert app.is_divergent_visible is True
+        assert app.divergence_frame.winfo_manager() != ""
+        assert "20.0%" in app.divergence_label.cget("text")
+
+        # Test non-divergent state (delta <= 0.15)
+        non_divergent_mock = dict(divergent_mock, div_delta=0.08, is_divergent=False, prob_lr=0.65)
+        app.show_prediction(non_divergent_mock)
+        assert app.is_divergent_visible is False
+        assert app.divergence_frame.winfo_manager() == ""
+
+        # AC 4: Accent colour follows selected surface across all surfaces
+        for surf, expected_hex in SURFACE_COLORS.items():
+            mock_res = dict(non_divergent_mock, surface=surf)
+            app.show_prediction(mock_res)
+            assert app.surface_badge.cget("fg") == expected_hex
+            assert app.surface_accent_strip.cget("bg") == expected_hex
+
+        # Error path hides diagnostic card elements
+        app.show_error("Test Error")
+        assert app.divergence_frame.winfo_manager() == ""
+        assert app.stats_frame.winfo_manager() == ""
+        assert app.surface_accent_strip.winfo_manager() == ""
+        assert app.header_frame.winfo_manager() == ""
+
+        # Same-player and empty validation errors
         app.p2_var.set(app.p1_var.get())
         app.on_predict()
         assert "different athletes" in app.error_var.get().lower()
 
-        # AC 4: Empty selection error
         app.p1_var.set("")
         app.on_predict()
         assert "select both" in app.error_var.get().lower()

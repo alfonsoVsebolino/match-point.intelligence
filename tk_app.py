@@ -89,6 +89,46 @@ def compute_display_probabilities(prob_lgb: float, prob_lr: float) -> dict:
         "lr_p2_pct": f"{lr_p2 * 100:.1f}%",
     }
 
+def resolve_surface_color(surface: str) -> str:
+    """Returns the accent color for a given court surface."""
+    return SURFACE_COLORS.get(surface, PALETTE["accent"])
+
+def format_symmetry_text(raw_asym: float, sym_score: float = 0.0) -> str:
+    """Formats symmetry and raw asymmetry display string."""
+    err_str = "Δ < 1e-5" if sym_score < 1e-5 else f"Δ {sym_score:.1e}"
+    return f"Symmetry: {err_str} (Raw Δ: {raw_asym * 100:.1f}%)"
+
+def resolve_divergence_status(is_divergent: bool = False, div_delta: float = 0.0) -> tuple[bool, str]:
+    """Returns (visible, warning_message) based on model divergence delta threshold (0.15)."""
+    visible = bool(is_divergent or div_delta > 0.15)
+    pct = div_delta * 100
+    msg = f"Non-linear divergence detected (|ΔP| = {pct:.1f}%): LightGBM captures non-linear interactions unmodeled by regularized Logistic Regression."
+    return visible, msg
+
+def format_key_stats(key_stats: dict | None) -> list[dict]:
+    """Formats 5 key delta summary tiles oriented vs Player 1."""
+    stats = key_stats or {}
+    rank_diff = float(stats.get("rank_diff", 0.0))
+    swr_diff = float(stats.get("surface_winrate_diff", 0.0))
+    form_diff = float(stats.get("form_divergence_diff", 0.0))
+    fatigue_diff = float(stats.get("matches_14d_diff", 0.0))
+    p1_wins = int(stats.get("h2h_p1_wins", 0))
+    p2_wins = int(stats.get("h2h_p2_wins", 0))
+
+    rank_color = "#10b981" if rank_diff <= 0 else "#ef4444"
+    swr_color = "#10b981" if swr_diff >= 0 else "#ef4444"
+    form_color = "#10b981" if form_diff >= 0 else "#ef4444"
+    fatigue_color = "#e2e8f0"
+    h2h_color = "#10b981" if p1_wins > p2_wins else ("#ef4444" if p1_wins < p2_wins else "#38bdf8")
+
+    return [
+        {"id": "rank", "label": "Rank Δ", "val": f"{rank_diff:+.0f}", "color": rank_color, "raw": rank_diff},
+        {"id": "swr", "label": "Surface WR Δ", "val": f"{swr_diff * 100:+.1f}%", "color": swr_color, "raw": swr_diff},
+        {"id": "form", "label": "Form Div Δ", "val": f"{form_diff:+.2f}", "color": form_color, "raw": form_diff},
+        {"id": "fatigue", "label": "Fatigue 14d Δ", "val": f"{fatigue_diff:+.0f} m", "color": fatigue_color, "raw": fatigue_diff},
+        {"id": "h2h", "label": "H2H Record", "val": f"{p1_wins} - {p2_wins}", "color": h2h_color, "p1_wins": p1_wins, "p2_wins": p2_wins},
+    ]
+
 def resolve_font_family(root: tk.Tk, font_type: str = "sans") -> str:
     """Finds best matching font family on system with fallbacks."""
     try:
@@ -576,7 +616,50 @@ class App:
             padx=8,
             pady=2
         )
-        self.series_badge.pack(side="left")
+        self.series_badge.pack(side="left", padx=(0, 6))
+
+        self.symmetry_badge = tk.Label(
+            self.badges_frame,
+            text="",
+            bg=PALETTE["border"],
+            fg="#10b981",
+            font=(self.font_mono, 9, "bold"),
+            padx=8,
+            pady=2
+        )
+        self.symmetry_badge.pack(side="left")
+
+        # Surface accent strip
+        self.surface_accent_strip = tk.Frame(self.card_results, height=3, bg=PALETTE["accent"])
+
+        # Divergence warning alert frame
+        self.divergence_frame = tk.Frame(
+            self.card_results,
+            bg="#241b0a",
+            highlightbackground="#f59e0b",
+            highlightthickness=1,
+            padx=12,
+            pady=8
+        )
+        self.divergence_icon = tk.Label(
+            self.divergence_frame,
+            text="⚠️",
+            bg="#241b0a",
+            fg="#f59e0b",
+            font=(self.font_sans, 11)
+        )
+        self.divergence_icon.pack(side="left", padx=(0, 8))
+        self.divergence_label = tk.Label(
+            self.divergence_frame,
+            text="",
+            bg="#241b0a",
+            fg="#fde68a",
+            font=(self.font_sans, 9),
+            wraplength=620,
+            justify="left"
+        )
+        self.divergence_label.pack(side="left", fill="x", expand=True)
+        self.is_divergent_visible = False
 
         # Probability Canvas
         self.canvas_bars = ProbabilityBarsCanvas(
@@ -585,6 +668,44 @@ class App:
             font_mono=self.font_mono
         )
         self.prob_display = self.canvas_bars
+
+        # 5 Key Delta Summary Tiles Frame
+        self.stats_frame = tk.Frame(
+            self.card_results,
+            bg="#0b0f19",
+            highlightbackground=PALETTE["border"],
+            highlightthickness=1,
+            padx=10,
+            pady=10
+        )
+        for col in range(5):
+            self.stats_frame.columnconfigure(col, weight=1)
+
+        self.stats_tiles = {}
+        for i, key in enumerate(["rank", "swr", "form", "fatigue", "h2h"]):
+            tile = tk.Frame(self.stats_frame, bg="#0b0f19")
+            tile.grid(row=0, column=i, sticky="nsew", padx=4)
+            lbl_title = tk.Label(
+                tile,
+                text="",
+                bg="#0b0f19",
+                fg=PALETTE["text_dim"],
+                font=(self.font_mono, 8, "bold")
+            )
+            lbl_title.pack()
+            lbl_val = tk.Label(
+                tile,
+                text="",
+                bg="#0b0f19",
+                fg=PALETTE["text"],
+                font=(self.font_mono, 12, "bold")
+            )
+            lbl_val.pack(pady=(2, 0))
+            self.stats_tiles[key] = {
+                "frame": tile,
+                "title": lbl_title,
+                "val": lbl_val,
+            }
 
         # Placeholder
         self.placeholder_frame = tk.Frame(self.card_results, bg=PALETTE["card_bg"], pady=30)
@@ -633,11 +754,28 @@ class App:
         else:
             self.show_prediction(res)
 
+    def reset_card(self):
+        self.error_var.set("")
+        self.is_divergent_visible = False
+        self.surface_accent_strip.pack_forget()
+        self.header_frame.pack_forget()
+        self.divergence_frame.pack_forget()
+        self.canvas_bars.pack_forget()
+        self.stats_frame.pack_forget()
+        self.error_frame.pack_forget()
+        self.card_results.config(highlightbackground=PALETTE["border"])
+        self.placeholder_frame.pack(fill="both", expand=True)
+
     def show_error(self, message: str):
         self.error_var.set(f"⚠️  {message}")
+        self.is_divergent_visible = False
         self.placeholder_frame.pack_forget()
+        self.surface_accent_strip.pack_forget()
         self.header_frame.pack_forget()
+        self.divergence_frame.pack_forget()
         self.canvas_bars.pack_forget()
+        self.stats_frame.pack_forget()
+        self.card_results.config(highlightbackground=PALETTE["border"])
         self.error_frame.pack(fill="x", pady=(0, 12))
 
     def show_prediction(self, res: dict):
@@ -649,18 +787,44 @@ class App:
         p2 = res.get("p2", "")
         surface = res.get("surface", "")
         series = res.get("series", "")
-        prob_lgb = res.get("prob_lgb", 0.5)
-        prob_lr = res.get("prob_lr", 0.5)
+        prob_lgb = float(res.get("prob_lgb", 0.5))
+        prob_lr = float(res.get("prob_lr", 0.5))
+        key_stats = res.get("key_stats", {})
+        sym_score = float(res.get("sym_score", 0.0))
+        raw_asym = float(res.get("raw_asym", 0.0))
+        div_delta = float(res.get("div_delta", abs(prob_lgb - prob_lr)))
+        is_divergent = bool(res.get("is_divergent", div_delta > 0.15))
 
         self.matchup_label.config(text=f"{p1}  vs  {p2}")
         self.subtitle_label.config(text=f"{series} • {surface} Court")
-        surf_color = SURFACE_COLORS.get(surface, PALETTE["accent"])
+        surf_color = resolve_surface_color(surface)
         self.surface_badge.config(text=surface, fg=surf_color)
         self.series_badge.config(text=series)
+        self.symmetry_badge.config(text=format_symmetry_text(raw_asym, sym_score))
+        self.surface_accent_strip.config(bg=surf_color)
+        self.card_results.config(highlightbackground=surf_color)
 
-        self.header_frame.pack(fill="x", pady=(0, 12))
+        self.surface_accent_strip.pack(fill="x", pady=(0, 10))
+        self.header_frame.pack(fill="x", pady=(0, 10))
+
+        is_div, div_msg = resolve_divergence_status(is_divergent, div_delta)
+        self.is_divergent_visible = is_div
+        if is_div:
+            self.divergence_label.config(text=div_msg)
+            self.divergence_frame.pack(fill="x", pady=(0, 10))
+        else:
+            self.divergence_frame.pack_forget()
+
         self.canvas_bars.set_data(p1, p2, prob_lgb, prob_lr)
         self.canvas_bars.pack(fill="x", pady=(0, 8))
+
+        formatted_stats = format_key_stats(key_stats)
+        for item in formatted_stats:
+            k = item["id"]
+            if k in self.stats_tiles:
+                self.stats_tiles[k]["title"].config(text=item["label"].upper())
+                self.stats_tiles[k]["val"].config(text=item["val"], fg=item["color"])
+        self.stats_frame.pack(fill="x", pady=(8, 0))
 
     def mainloop(self):
         self.root.mainloop()
