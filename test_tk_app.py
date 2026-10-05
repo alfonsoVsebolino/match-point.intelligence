@@ -212,7 +212,7 @@ def test_evaluate_historical_outcome():
     res1 = evaluate_historical_outcome("Alcaraz C.", "Alcaraz C.", 0.68)
     assert res1["correct"] is True
     assert res1["badge_text"] == "PREDICTION ACCURATE"
-    assert res1["icon"] == "✓"
+    assert res1["icon"] == "[OK]"
     assert res1["badge_border"] == "#10b981"
     assert res1["badge_text_color"] == "#10b981"
 
@@ -220,7 +220,7 @@ def test_evaluate_historical_outcome():
     res2 = evaluate_historical_outcome("Alcaraz C.", "Sinner J.", 0.68)
     assert res2["correct"] is False
     assert res2["badge_text"] == "UPSET / DIVERGENT"
-    assert res2["icon"] == "✗"
+    assert res2["icon"] == "[X]"
     assert res2["badge_border"] == "#f43f5e"
     assert res2["badge_text_color"] == "#f43f5e"
 
@@ -228,13 +228,13 @@ def test_evaluate_historical_outcome():
     res3 = evaluate_historical_outcome("Alcaraz C.", "Sinner J.", 0.32)
     assert res3["correct"] is True
     assert res3["badge_text"] == "PREDICTION ACCURATE"
-    assert res3["icon"] == "✓"
+    assert res3["icon"] == "[OK]"
 
     # 4. P2 favored, P1 wins -> Upset
     res4 = evaluate_historical_outcome("Alcaraz C.", "Alcaraz C.", 0.32)
     assert res4["correct"] is False
     assert res4["badge_text"] == "UPSET / DIVERGENT"
-    assert res4["icon"] == "✗"
+    assert res4["icon"] == "[X]"
 
 def test_format_bm_odds():
     from tk_app import format_bm_odds
@@ -430,7 +430,7 @@ def test_gui_smoke_and_acceptance_criteria():
         )
         app.show_historical_prediction(mock_accurate)
         assert "PREDICTION ACCURATE" in app.hist_status_pill.cget("text")
-        assert app.hist_winner_icon.cget("text") == "✓"
+        assert app.hist_winner_icon.cget("text") == "[OK]"
         assert app.hist_score_text.winfo_manager() != ""
         assert "6-4 6-3" in app.hist_score_text.cget("text")
 
@@ -443,7 +443,7 @@ def test_gui_smoke_and_acceptance_criteria():
         )
         app.show_historical_prediction(mock_upset)
         assert "UPSET / DIVERGENT" in app.hist_status_pill.cget("text")
-        assert app.hist_winner_icon.cget("text") == "✗"
+        assert app.hist_winner_icon.cget("text") == "[X]"
         assert app.hist_score_text.winfo_manager() == ""
 
         # Divergence banner in historical tab

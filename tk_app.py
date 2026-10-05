@@ -82,7 +82,7 @@ def evaluate_historical_outcome(p1: str, actual_winner: str, prob_lgb: float) ->
         "badge_bg": PALETTE["correct_bg"] if correct else PALETTE["upset_bg"],
         "badge_border": PALETTE["correct_border"] if correct else PALETTE["upset_border"],
         "badge_text_color": PALETTE["correct_text"] if correct else PALETTE["upset_text"],
-        "icon": "✓" if correct else "✗",
+        "icon": "[OK]" if correct else "[X]",
     }
 
 def format_bm_odds(bm_prob: float | None) -> dict[str, str] | None:
@@ -189,12 +189,12 @@ def resolve_font_family(root: tk.Tk, font_type: str = "sans") -> str:
         available = set()
 
     if font_type == "mono":
-        for cand in ["jetbrains mono", "consolas", "dejavu sans mono", "nimbus mono l", "courier"]:
+        for cand in ["courier", "nimbus mono l", "consolas", "jetbrains mono"]:
             if cand in available:
                 return cand
         return "courier"
     else:
-        for cand in ["plus jakarta sans", "segoe ui", "dejavu sans", "nimbus sans l", "helvetica", "sans-serif"]:
+        for cand in ["helvetica", "nimbus sans l", "segoe ui", "plus jakarta sans", "sans-serif"]:
             if cand in available:
                 return cand
         return "helvetica"
@@ -255,7 +255,7 @@ class ProbabilityBarsCanvas(tk.Canvas):
 
         self.create_text(
             pad_x, y_lgb_txt,
-            text="★ LightGBM Champion",
+            text="LightGBM Champion",
             fill=PALETTE["accent"],
             anchor="w",
             font=(self.font_sans, 10, "bold")
@@ -535,7 +535,7 @@ class App:
         logo_frame = tk.Frame(brand_left, bg=PALETTE["accent"], width=36, height=36)
         logo_frame.pack(side="left", padx=(0, 10))
         logo_frame.pack_propagate(False)
-        logo_lbl = tk.Label(logo_frame, text="🎾", bg=PALETTE["accent"], font=(self.font_sans, 16))
+        logo_lbl = tk.Label(logo_frame, text="MP", bg=PALETTE["accent"], fg="#ffffff", font=(self.font_sans, 12, "bold"))
         logo_lbl.pack(expand=True)
 
         titles_frame = tk.Frame(brand_left, bg=PALETTE["bg"])
@@ -552,7 +552,7 @@ class App:
 
         sub_lbl = tk.Label(
             titles_frame,
-            text="Dual-Track ML Engine (LightGBM Champion vs LogReg Baseline) • 31 Fundamental Features",
+            text="Dual-Track ML Engine (LightGBM Champion vs LogReg Baseline) | 31 Fundamental Features",
             bg=PALETTE["bg"],
             fg=PALETTE["text_muted"],
             font=(self.font_mono, 9)
@@ -565,12 +565,12 @@ class App:
 
         chip1 = tk.Frame(chips_frame, bg=PALETTE["card_bg"], highlightbackground=PALETTE["border"], highlightthickness=1, padx=8, pady=4)
         chip1.pack(side="left", padx=(0, 8))
-        tk.Label(chip1, text="●", fg="#10b981", bg=PALETTE["card_bg"], font=(self.font_sans, 8)).pack(side="left", padx=(0, 4))
+        tk.Label(chip1, text="*", fg="#10b981", bg=PALETTE["card_bg"], font=(self.font_mono, 9, "bold")).pack(side="left", padx=(0, 4))
         tk.Label(chip1, text="Dual Models Loaded", fg=PALETTE["text"], bg=PALETTE["card_bg"], font=(self.font_mono, 8, "bold")).pack(side="left")
 
         chip2 = tk.Frame(chips_frame, bg=PALETTE["card_bg"], highlightbackground=PALETTE["border"], highlightthickness=1, padx=8, pady=4)
         chip2.pack(side="left")
-        tk.Label(chip2, text="●", fg="#38bdf8", bg=PALETTE["card_bg"], font=(self.font_sans, 8)).pack(side="left", padx=(0, 4))
+        tk.Label(chip2, text="*", fg="#38bdf8", bg=PALETTE["card_bg"], font=(self.font_mono, 9, "bold")).pack(side="left", padx=(0, 4))
         tk.Label(chip2, text="H2H History 2000-2026 Ready", fg=PALETTE["text"], bg=PALETTE["card_bg"], font=(self.font_mono, 8, "bold")).pack(side="left")
 
         # Divider
@@ -581,8 +581,8 @@ class App:
         self.notebook = ttk.Notebook(self.root)
         self.tab_upcoming = tk.Frame(self.notebook, bg=PALETTE["bg"], padx=4, pady=4)
         self.tab_historical = tk.Frame(self.notebook, bg=PALETTE["bg"], padx=4, pady=4)
-        self.notebook.add(self.tab_upcoming, text="⚡ Upcoming Predictor")
-        self.notebook.add(self.tab_historical, text="🔍 Historical Backtracker")
+        self.notebook.add(self.tab_upcoming, text="Upcoming Predictor")
+        self.notebook.add(self.tab_historical, text="Historical Backtracker")
         self.notebook.pack(fill="both", expand=True, padx=20, pady=(0, 16))
 
         self._build_upcoming_tab()
@@ -603,7 +603,7 @@ class App:
         # Row 0: Roster Toggle
         self.roster_cb = ttk.Checkbutton(
             card_controls,
-            text="Unlock All-Time Historical Roster (2000–2026)",
+            text="Unlock All-Time Historical Roster (2000-2026)",
             variable=self.roster_var,
             command=self.on_roster_toggle,
             style="TCheckbutton"
@@ -625,7 +625,7 @@ class App:
 
         swap_box = tk.Frame(p_row, bg=PALETTE["card_bg"])
         swap_box.grid(row=0, column=1, sticky="s", padx=6, pady=(0, 1))
-        self.swap_btn = ttk.Button(swap_box, text="⇄ Swap", style="Swap.TButton", command=self.on_swap)
+        self.swap_btn = ttk.Button(swap_box, text="<-> Swap", style="Swap.TButton", command=self.on_swap)
         self.swap_btn.pack()
 
         p2_box = tk.Frame(p_row, bg=PALETTE["card_bg"])
@@ -655,7 +655,7 @@ class App:
 
         predict_box = tk.Frame(c_row, bg=PALETTE["card_bg"])
         predict_box.grid(row=0, column=2, sticky="se", padx=(6, 0), pady=(0, 1))
-        self.predict_btn = ttk.Button(predict_box, text="⚡ Predict Matchup", style="Primary.TButton", command=self.on_predict)
+        self.predict_btn = ttk.Button(predict_box, text="Predict Matchup", style="Primary.TButton", command=self.on_predict)
         self.predict_btn.pack(fill="x")
 
         # 2. Results Card
@@ -771,10 +771,10 @@ class App:
         )
         self.divergence_icon = tk.Label(
             self.divergence_frame,
-            text="⚠️",
+            text="[!]",
             bg="#241b0a",
             fg="#f59e0b",
-            font=(self.font_sans, 11)
+            font=(self.font_mono, 9, "bold")
         )
         self.divergence_icon.pack(side="left", padx=(0, 8))
         self.divergence_label = tk.Label(
@@ -839,7 +839,7 @@ class App:
         self.placeholder_frame = tk.Frame(self.card_results, bg=PALETTE["card_bg"], pady=30)
         self.placeholder_label = tk.Label(
             self.placeholder_frame,
-            text="Ready. Select players and court conditions, then click '⚡ Predict Matchup'.",
+            text="Ready. Select players and court conditions, then click 'Predict Matchup'.",
             bg=PALETTE["card_bg"],
             fg=PALETTE["text_dim"],
             font=(self.font_sans, 10, "italic")
@@ -893,7 +893,7 @@ class App:
 
         btn_box = tk.Frame(row1, bg=PALETTE["card_bg"])
         btn_box.grid(row=0, column=1, sticky="se", padx=(6, 0), pady=(0, 1))
-        self.inspect_btn = ttk.Button(btn_box, text="🔍 Inspect & Backtrack", style="Primary.TButton", command=self.on_inspect)
+        self.inspect_btn = ttk.Button(btn_box, text="Inspect & Backtrack", style="Primary.TButton", command=self.on_inspect)
         self.inspect_btn.pack(fill="x")
         self.hist_inspect_btn = self.inspect_btn
 
@@ -1006,10 +1006,10 @@ class App:
 
         self.hist_winner_icon = tk.Label(
             self.hist_winner_badge_left,
-            text="✓",
+            text="[OK]",
             bg=PALETTE["correct_bg"],
             fg=PALETTE["correct_text"],
-            font=(self.font_sans, 14, "bold")
+            font=(self.font_mono, 9, "bold")
         )
         self.hist_winner_icon.pack(side="left", padx=(0, 8))
 
@@ -1056,10 +1056,10 @@ class App:
         )
         self.hist_divergence_icon = tk.Label(
             self.hist_divergence_frame,
-            text="⚠️",
+            text="[!]",
             bg="#241b0a",
             fg="#f59e0b",
-            font=(self.font_sans, 11)
+            font=(self.font_mono, 9, "bold")
         )
         self.hist_divergence_icon.pack(side="left", padx=(0, 8))
         self.hist_divergence_label = tk.Label(
@@ -1145,7 +1145,7 @@ class App:
         self.hist_placeholder_frame = tk.Frame(self.card_hist_results, bg=PALETTE["card_bg"], pady=30)
         self.hist_placeholder_label = tk.Label(
             self.hist_placeholder_frame,
-            text="Ready. Select split, tournament, and matchup, then click '🔍 Inspect & Backtrack'.",
+            text="Ready. Select split, tournament, and matchup, then click 'Inspect & Backtrack'.",
             bg=PALETTE["card_bg"],
             fg=PALETTE["text_dim"],
             font=(self.font_sans, 10, "italic")
@@ -1250,7 +1250,7 @@ class App:
         self.placeholder_frame.pack(fill="both", expand=True)
 
     def show_error(self, message: str):
-        self.error_var.set(f"⚠️  {message}")
+        self.error_var.set(f"[!] {message}")
         self.is_divergent_visible = False
         self.placeholder_frame.pack_forget()
         self.surface_accent_strip.pack_forget()
@@ -1279,7 +1279,7 @@ class App:
         is_divergent = bool(res.get("is_divergent", div_delta > 0.15))
 
         self.matchup_label.config(text=f"{p1}  vs  {p2}")
-        self.subtitle_label.config(text=f"{series} • {surface} Court")
+        self.subtitle_label.config(text=f"{series} | {surface} Court")
         surf_color = resolve_surface_color(surface)
         self.surface_badge.config(text=surface, fg=surf_color)
         self.series_badge.config(text=series)
@@ -1418,7 +1418,7 @@ class App:
         self.hist_placeholder_frame.pack(fill="both", expand=True)
 
     def show_historical_error(self, message: str):
-        self.historical_error_var.set(f"⚠️  {message}")
+        self.historical_error_var.set(f"[!] {message}")
         self.hist_is_divergent_visible = False
         self.hist_placeholder_frame.pack_forget()
         self.hist_surface_accent_strip.pack_forget()
@@ -1461,7 +1461,7 @@ class App:
         # Matchup header
         self.hist_matchup_label.config(text=f"{p1}  vs  {p2}")
         round_part = f" ({round_name})" if round_name else ""
-        sub_txt = f"{date_str} • {tournament}{round_part} • {surface}" if tournament and date_str else f"{series} • {surface} Court"
+        sub_txt = f"{date_str} | {tournament}{round_part} | {surface}" if tournament and date_str else f"{series} | {surface} Court"
         self.hist_subtitle_label.config(text=sub_txt)
         self.hist_surface_badge.config(text=surface, fg=surf_color)
         self.hist_series_badge.config(text=series)
