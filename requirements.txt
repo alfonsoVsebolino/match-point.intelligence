@@ -16,3 +16,6 @@ seaborn>=0.12.0
 # Ingestion & Execution
 kagglehub>=0.2.0
 jupyter>=1.0.0
+
+# Interactive GUI & Serving
+gradio>=4.0.0

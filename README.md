@@ -77,6 +77,13 @@ champion_lr = bundle["champion_lr"]
 print("Artifacts loaded successfully.")
 ```
 
+#### Pop-Out GUI: Interactive Gradio Match Predictor
+Launch the standalone web console with dual-model inference, inversion symmetry audit, and historical holdout backtracker:
+
+```bash
+python gradio_app.py
+```
+
 #### Full-Pipeline: Kaggle ETL & Feature Engineering
 To re-run the 7-phase data cleaning, score parsing, rolling statistics computation, and feature selection:
 
