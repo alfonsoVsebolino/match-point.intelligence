@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MatchPoint.intelligence | Neon ESPN ATP Analytics &amp; Inference Arena</title>
+  <meta name="description" content="Real-time ATP tennis match prediction arena powered by dual-model LightGBM &amp; Logistic Regression inference, TreeSHAP explainability, Power-Method de-vigged betting edges, and Arcade scouting cards.">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script defer src="/static/arcade_cards.js"></script>
+  <script defer src="/static/charts.js"></script>
+  <script defer src="/static/app.js"></script>
+</head>
+<body>
+  <!-- Top ESPN Live-Match Ticker Strip -->
+  <aside id="espnTickerStrip" data-testid="espn-ticker-strip" class="espn-ticker-strip" aria-label="ATP Live Match Ticker">
+    <div class="ticker-brand-tag">
+      <span class="live-dot" aria-hidden="true"></span>
+      <span>ATP WIRE</span>
+    </div>
+    <div class="ticker-viewport">
+      <div id="tickerTrack" data-testid="ticker-track" class="ticker-track" role="list">
+        <div class="ticker-standby">INITIALIZING BROADCAST TELEMETRY...</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Broadcast Masthead -->
+  <header id="masthead" class="masthead">
+    <div class="masthead-inner">
+      <div class="brand-lockup">
+        <div class="brand-emblem" aria-hidden="true">
+          <span class="court-arc"></span>
+          <span class="ball-core"></span>
+        </div>
+        <div class="brand-titles">
+          <h1>MatchPoint.intelligence</h1>
+          <p class="brand-subtitle">ESPN BROADCAST ARENA &bull; DUAL-MODEL ATP INFERENCE &bull; TREESHAP &amp; POWER-METHOD EDGE</p>
+        </div>
+      </div>
+
+      <div class="telemetry-chips" aria-label="System Telemetry">
+        <div id="chipModelsStatus" class="telemetry-chip">
+          <span class="chip-dot chip-dot-cyan" aria-hidden="true"></span>
+          <span class="chip-label">MODELS</span>
+          <span class="chip-val">CHECKING...</span>
+        </div>
+        <div id="chipSyncStatus" class="telemetry-chip">
+          <span class="chip-dot chip-dot-volt" aria-hidden="true"></span>
+          <span class="chip-label">SYNC</span>
+          <span class="chip-val">LOADING...</span>
+        </div>
+        <div id="chipRosterCount" class="telemetry-chip">
+          <span class="chip-dot chip-dot-magenta" aria-hidden="true"></span>
+          <span class="chip-label">ROSTER</span>
+          <span class="chip-val">-- / --</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3 Unified Navigation Modes -->
+    <nav class="mode-nav-bar" aria-label="Platform Modes">
+      <div class="mode-nav-inner" role="tablist">
+        <button
+          id="tabSchedule"
+          data-testid="tab-schedule"
+          class="mode-tab"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panelSchedule"
+          type="button"
+        >
+          <span class="tab-code">01</span>
+          <span class="tab-label">Daily Schedule Board</span>
+          <span id="tabScheduleBadge" class="tab-badge">0</span>
+        </button>
+        <button
+          id="tabArena"
+          data-testid="tab-arena"
+          class="mode-tab is-active"
+          role="tab"
+          aria-selected="true"
+          aria-controls="panelArena"
+          type="button"
+        >
+          <span class="tab-code">02</span>
+          <span class="tab-label">H2H Matchup Arena</span>
+        </button>
+        <button
+          id="tabBacktracker"
+          data-testid="tab-backtracker"
+          class="mode-tab"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panelBacktracker"
+          type="button"
+        >
+          <span class="tab-code">03</span>
+          <span class="tab-label">Historical Backtracker</span>
+          <span class="tab-pill">2000–2026</span>
+        </button>
+      </div>
+    </nav>
+  </header>
+
+  <main class="arena-shell">
+    <!-- MODE 1: Daily Schedule Board -->
+    <section
+      id="panelSchedule"
+      data-testid="panel-schedule"
+      class="mode-panel is-hidden"
+      role="tabpanel"
+      aria-labelledby="tabSchedule"
+      aria-hidden="true"
+    >
+      <div class="panel-header-row">
+        <div>
+          <h2 class="section-heading">DAILY ATP SCHEDULE SCOREBOARD</h2>
+          <p class="section-subheading">Published Tour fixtures scored by LightGBM Champion + LogReg Baseline &amp; Power-Method De-Vig</p>
+        </div>
+        <div class="schedule-actions">
+          <button id="refreshScheduleBtn" data-testid="refresh-schedule-btn" class="btn-neon-volt" type="button">
+            <span class="btn-spinner" aria-hidden="true"></span>
+            <span class="btn-text">Refresh ESPN Feed</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI Telemetry Bar -->
+      <div id="scheduleKpiBar" class="kpi-bar">
+        <div class="kpi-tile">
+          <span class="kpi-label">TOTAL FIXTURES</span>
+          <strong id="kpiTotalFixtures" class="kpi-value">0</strong>
+        </div>
+        <div class="kpi-tile kpi-live">
+          <span class="kpi-label">LIVE COURTS</span>
+          <strong id="kpiLiveCount" class="kpi-value">0</strong>
+        </div>
+        <div class="kpi-tile kpi-volt">
+          <span class="kpi-label">VALUE EDGES (&ge;3%)</span>
+          <strong id="kpiValueEdges" class="kpi-value">0</strong>
+        </div>
+        <div class="kpi-tile kpi-amber">
+          <span class="kpi-label">MODEL DIVERGENCE</span>
+          <strong id="kpiDivergentCount" class="kpi-value">0</strong>
+        </div>
+        <div class="kpi-tile kpi-wide">
+          <span class="kpi-label">CHAMPION MODEL METRICS</span>
+          <strong id="kpiModelMetrics" class="kpi-value kpi-value-sm">--</strong>
+        </div>
+        <div class="kpi-tile">
+          <span class="kpi-label">SCHEDULE SYNC</span>
+          <strong id="kpiSyncTime" class="kpi-value kpi-value-sm">Standby</strong>
+        </div>
+      </div>
+
+      <!-- Schedule Filter Controls -->
+      <div class="schedule-filter-bar">
+        <div class="series-pills" role="group" aria-label="Filter by Tournament Series">
+          <button type="button" class="filter-pill is-active" data-series="all">All Series</button>
+          <button type="button" class="filter-pill" data-series="Grand Slam">Grand Slam</button>
+          <button type="button" class="filter-pill" data-series="Masters 1000">Masters 1000</button>
+          <button type="button" class="filter-pill" data-series="ATP500">ATP500</button>
+          <button type="button" class="filter-pill" data-series="ATP250">ATP250</button>
+        </div>
+
+        <label class="toggle-chip" for="onlyEdgeToggle">
+          <input id="onlyEdgeToggle" data-testid="only-edge-toggle" type="checkbox">
+          <span class="toggle-track" aria-hidden="true"></span>
+          <span class="toggle-label">Value Edges Only (&ge;3%)</span>
+        </label>
+      </div>
+
+      <div id="scheduleNoticeBanner" class="notice-banner is-hidden" role="status" aria-live="polite"></div>
+
+      <!-- Tournament Scoreboard Card Grid -->
+      <div id="scheduleCardGrid" data-testid="schedule-card-grid" class="schedule-card-grid"></div>
+
+      <!-- Empty State -->
+      <div id="scheduleEmptyState" data-testid="schedule-empty-state" class="empty-state is-hidden">
+        <div class="empty-state-badge">LIVE FEED STANDBY</div>
+        <h3>No Published ATP Fixtures Loaded</h3>
+        <p>Sync the live ESPN ATP scoreboard feed or launch the custom H2H Matchup Arena to run real-time dual-model predictions.</p>
+        <div class="empty-state-actions">
+          <button id="emptyRefreshBtn" class="btn-neon-volt" type="button">Sync ESPN Live Feed</button>
+          <button id="emptyGoArenaBtn" class="btn-neon-cyan" type="button">Open H2H Matchup Arena</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- MODE 2: H2H Matchup Arena (Custom Predictor) -->
+    <section
+      id="panelArena"
+      data-testid="panel-arena"
+      class="mode-panel"
+      role="tabpanel"
+      aria-labelledby="tabArena"
+      aria-hidden="false"
+    >
+      <div class="control-deck">
+        <div class="panel-header-row compact">
+          <div>
+            <h2 class="section-heading">H2H MATCHUP ARENA</h2>
+            <p class="section-subheading">Configure players, court surface, series tier &amp; optional decimal odds for Power-Method Kelly sizing</p>
+          </div>
+          <label class="toggle-chip" for="allTimeToggle">
+            <input id="allTimeToggle" data-testid="all-time-toggle" type="checkbox">
+            <span class="toggle-track" aria-hidden="true"></span>
+            <span class="toggle-label">All-Time Legends Pool (2000–2026)</span>
+          </label>
+        </div>
+
+        <form id="arenaForm" class="arena-form" novalidate>
+          <!-- Player 1 Corner (Cyan) -->
+          <div class="player-control-box corner-p1">
+            <div class="corner-header">
+              <span class="corner-badge p1-badge">PLAYER 1 &bull; CYAN CORNER</span>
+            </div>
+            <label class="sr-only" for="p1Filter">Filter Player 1</label>
+            <input id="p1Filter" class="neon-input filter-input" type="search" placeholder="Search P1 name (e.g. Alcaraz)..." autocomplete="off">
+            <label class="sr-only" for="p1Select">Select Player 1</label>
+            <select id="p1Select" data-testid="p1-select" class="neon-select"></select>
+            <div class="odds-field-row">
+              <label for="odd1Input">Decimal Odds P1 <span class="opt-tag">(Optional)</span></label>
+              <input id="odd1Input" data-testid="odd1-input" class="neon-input mono-input" type="number" step="0.01" min="1.01" placeholder="e.g. 1.85">
+            </div>
+          </div>
+
+          <!-- Center Swap & Match Context -->
+          <div class="center-control-box">
+            <button id="swapPlayersBtn" data-testid="swap-players-btn" class="btn-swap" type="button" title="Swap Player 1 and Player 2" aria-label="Swap Player 1 and Player 2">
+              <span aria-hidden="true">&#8644;</span>
+              <span>SWAP</span>
+            </button>
+
+            <div class="context-select-group">
+              <div class="field-stack">
+                <label for="surfaceSelect">Court Surface</label>
+                <select id="surfaceSelect" data-testid="surface-select" class="neon-select"></select>
+              </div>
+              <div class="field-stack">
+                <label for="seriesSelect">Tournament Series</label>
+                <select id="seriesSelect" data-testid="series-select" class="neon-select"></select>
+              </div>
+            </div>
+
+            <button id="predictBtn" data-testid="predict-btn" class="btn-predict" type="submit">
+              <span class="btn-spinner" aria-hidden="true"></span>
+              <span class="btn-text">ANALYZE MATCHUP</span>
+            </button>
+          </div>
+
+          <!-- Player 2 Corner (Magenta) -->
+          <div class="player-control-box corner-p2">
+            <div class="corner-header">
+              <span class="corner-badge p2-badge">PLAYER 2 &bull; MAGENTA CORNER</span>
+            </div>
+            <label class="sr-only" for="p2Filter">Filter Player 2</label>
+            <input id="p2Filter" class="neon-input filter-input" type="search" placeholder="Search P2 name (e.g. Sinner)..." autocomplete="off">
+            <label class="sr-only" for="p2Select">Select Player 2</label>
+            <select id="p2Select" data-testid="p2-select" class="neon-select"></select>
+            <div class="odds-field-row">
+              <label for="odd2Input">Decimal Odds P2 <span class="opt-tag">(Optional)</span></label>
+              <input id="odd2Input" data-testid="odd2-input" class="neon-input mono-input" type="number" step="0.01" min="1.01" placeholder="e.g. 2.05">
+            </div>
+          </div>
+        </form>
+
+        <div id="arenaErrorBanner" data-testid="arena-error-banner" class="error-banner is-hidden" role="alert"></div>
+      </div>
+    </section>
+
+    <!-- MODE 3: Historical Match Backtracker (2000-2026) -->
+    <section
+      id="panelBacktracker"
+      data-testid="panel-backtracker"
+      class="mode-panel is-hidden"
+      role="tabpanel"
+      aria-labelledby="tabBacktracker"
+      aria-hidden="true"
+    >
+      <div class="control-deck">
+        <div class="panel-header-row compact">
+          <div>
+            <h2 class="section-heading">HISTORICAL MATCH BACKTRACKER (2000–2026)</h2>
+            <p class="section-subheading">Audit pre-match predictions, actual match outcomes, bookmaker implied baselines &amp; TreeSHAP diagnostics</p>
+          </div>
+        </div>
+
+        <div class="backtracker-grid">
+          <div class="field-stack">
+            <label for="histSplitSelect">Dataset Split</label>
+            <select id="histSplitSelect" data-testid="hist-split-select" class="neon-select"></select>
+          </div>
+          <div class="field-stack">
+            <label for="histTournamentSelect">Tournament</label>
+            <select id="histTournamentSelect" data-testid="hist-tournament-select" class="neon-select"></select>
+          </div>
+          <div class="field-stack">
+            <label for="histMatchSelect">Matchup</label>
+            <select id="histMatchSelect" data-testid="hist-match-select" class="neon-select"></select>
+          </div>
+          <div class="field-stack field-action">
+            <button id="histInspectBtn" data-testid="hist-inspect-btn" class="btn-neon-volt" type="button">
+              <span class="btn-spinner" aria-hidden="true"></span>
+              <span class="btn-text">Inspect Match</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="histErrorBanner" class="error-banner is-hidden" role="alert"></div>
+      </div>
+    </section>
+
+    <!-- FULL ARCADE BROADCAST VISUALIZATION SUITE (Rendered in #arenaStage) -->
+    <section id="arenaStage" data-testid="arena-stage" class="arena-stage" aria-live="polite">
+      <!-- Historical Result Banner (visible only when is_historical === true) -->
+      <div id="historicalResultBanner" data-testid="historical-result-banner" class="historical-result-banner is-hidden"></div>
+
+      <!-- Backtracker Standby Message (visible in Mode 3 prior to first inspect) -->
+      <div id="histStandbyPrompt" class="empty-state is-hidden">
+        <div class="empty-state-badge">HISTORICAL AUDIT READY</div>
+        <h3>Select a Historical Matchup to Inspect</h3>
+        <p>Choose a dataset split, tournament, and match above, then click <strong>Inspect Match</strong> to verify model accuracy against the recorded result.</p>
+      </div>
+
+      <!-- Active Diagnostic Content -->
+      <div id="stageContent" class="stage-content">
+        <!-- Split H2H Broadcast Banner -->
+        <div id="splitH2HBanner" data-testid="split-h2h-banner" class="split-h2h-banner"></div>
+
+        <!-- Side-by-Side Neon FIFA / TopSpin Trading Cards -->
+        <div id="tradingCardsDeck" data-testid="trading-cards-deck" class="trading-cards-deck">
+          <article id="playerCardP1" data-testid="player-card-p1" class="arcade-card card-p1"></article>
+          <article id="playerCardP2" data-testid="player-card-p2" class="arcade-card card-p2"></article>
+        </div>
+
+        <!-- Radar Duel + Divergence Gauge & Tale-of-the-Tape -->
+        <div class="viz-duel-grid">
+          <!-- 6-Axis Neon Spider/Radar Duel Chart -->
+          <section class="arena-panel radar-panel" aria-label="6-Axis Player Stat Radar">
+            <div class="arena-panel-header">
+              <div>
+                <h3 class="panel-title">6-AXIS SCOUTING RADAR DUEL</h3>
+                <p class="panel-caption">Hover or focus any axis vertex to inspect P1 vs P2 ratings</p>
+              </div>
+              <div class="radar-legend">
+                <span class="legend-item p1"><i aria-hidden="true"></i><span id="radarLegendP1">P1</span></span>
+                <span class="legend-item p2"><i aria-hidden="true"></i><span id="radarLegendP2">P2</span></span>
+              </div>
+            </div>
+            <div id="radarChartContainer" data-testid="radar-chart" class="radar-chart-container"></div>
+            <div id="radarReadout" class="radar-readout">Focus an axis to compare scouting ratings</div>
+          </section>
+
+          <!-- Dual-Model Divergence Gauge & ESPN Tale-of-the-Tape -->
+          <section id="divergenceAndTapePanel" data-testid="tale-of-the-tape" class="arena-panel tape-panel" aria-label="Dual-Model Tale of the Tape">
+            <div class="arena-panel-header">
+              <div>
+                <h3 class="panel-title">DUAL-MODEL TALE OF THE TAPE</h3>
+                <p class="panel-caption">LightGBM Champion vs Logistic Regression Baseline &amp; Non-Linear Divergence</p>
+              </div>
+            </div>
+
+            <div class="tape-top-grid">
+              <div id="divergenceGauge" data-testid="divergence-gauge" class="divergence-gauge-box"></div>
+              <div id="modelProbBars" class="model-prob-bars"></div>
+            </div>
+
+            <!-- Power-Method Edge & Quarter-Kelly Meter -->
+            <div id="kellyEdgePanel" data-testid="kelly-edge-panel" class="kelly-edge-panel"></div>
+
+            <!-- 5 Key Delta Tiles -->
+            <div id="keyStatsTiles" data-testid="key-stats-tiles" class="key-stats-tiles"></div>
+          </section>
+        </div>
+
+        <!-- Bidirectional LightGBM TreeSHAP Tug-of-War Breakdown -->
+        <section id="treeshapPanel" data-testid="treeshap-panel" class="arena-panel treeshap-panel" aria-label="LightGBM TreeSHAP Tug-of-War">
+          <div class="arena-panel-header">
+            <div>
+              <h3 class="panel-title">TREESHAP LOG-ODDS TUG-OF-WAR</h3>
+              <p class="panel-caption">Symmetrized LightGBM feature contributions pulling toward P1 (Cyan) vs P2 (Magenta)</p>
+            </div>
+            <div id="treeshapSummary" class="treeshap-summary"></div>
+          </div>
+          <div id="treeshapBars" class="treeshap-bars"></div>
+        </section>
+
+        <!-- Collapsible 31-Feature Matrix -->
+        <section id="featuresMatrixSection" data-testid="features-matrix-section" class="arena-panel features-matrix-section">
+          <div class="matrix-header-row">
+            <div>
+              <h3 class="panel-title">31-FEATURE PREDICTOR MATRIX</h3>
+              <p class="panel-caption">Complete delta vector, LightGBM TreeSHAP pull, and Logistic Regression coefficients</p>
+            </div>
+            <button
+              id="toggleFeaturesMatrixBtn"
+              data-testid="toggle-features-matrix-btn"
+              class="btn-neon-outline"
+              type="button"
+              aria-expanded="false"
+              aria-controls="featuresMatrixBody"
+            >
+              Show 31-Feature Matrix
+            </button>
+          </div>
+
+          <div id="featuresMatrixBody" class="features-matrix-body is-hidden">
+            <div id="matrixCategoryPills" class="series-pills matrix-pills" role="group" aria-label="Filter 31 features by category">
+              <button type="button" class="filter-pill is-active" data-category="All">All</button>
+              <button type="button" class="filter-pill" data-category="Ranking">Ranking</button>
+              <button type="button" class="filter-pill" data-category="Short Form (10M)">Short Form (10M)</button>
+              <button type="button" class="filter-pill" data-category="Med Form (365d)">Med Form (365d)</button>
+              <button type="button" class="filter-pill" data-category="Career">Career</button>
+              <button type="button" class="filter-pill" data-category="Context & Fatigue">Context &amp; Fatigue</button>
+              <button type="button" class="filter-pill" data-category="Head-to-Head">Head-to-Head</button>
+              <button type="button" class="filter-pill" data-category="Match Context">Match Context</button>
+            </div>
+
+            <div class="table-scroll">
+              <table id="features31Table" data-testid="features-31-table" class="features-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Predictor</th>
+                    <th>Category</th>
+                    <th class="num-col">Raw Value / &Delta;</th>
+                    <th class="num-col">TreeSHAP</th>
+                    <th class="num-col">LR Coef</th>
+                    <th>Favors</th>
+                  </tr>
+                </thead>
+                <tbody id="features31Tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <footer class="broadcast-footer">
+    <div class="footer-inner">
+      <span>MATCHPOINT.INTELLIGENCE &bull; STATELESS CLOUD RUN INFERENCE ARENA</span>
+      <span>DUAL-PASS SYMMETRIZED &bull; POWER-METHOD DE-VIG &bull; QUARTER-KELLY CAPPED AT 2.5%</span>
+    </div>
+  </footer>
+</body>
+</html>

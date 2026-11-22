@@ -16,6 +16,7 @@ from atp_engine import (
     predict_matchup,
     inspect_historical_match
 )
+from atp_daily_sync import render_daily_schedule_html, run_daily_pipeline
 
 # ---------------------------------------------------------------------------
 # UI Theme & Styling
@@ -137,7 +138,8 @@ with gr.Blocks(title="MatchPoint.intelligence | ATP Predictor", theme=theme, css
         mode_radio = gr.Radio(
             choices=[
                 "⚡ Upcoming Match Predictor",
-                "🔍 Historical Match Backtracker"
+                "🔍 Historical Match Backtracker",
+                "📅 Daily Schedule Feed"
             ],
             value="⚡ Upcoming Match Predictor",
             show_label=False,
@@ -241,17 +243,58 @@ with gr.Blocks(title="MatchPoint.intelligence | ATP Predictor", theme=theme, css
         )
 
     # =========================================================================
+    # Mode C: Daily Schedule Feed
+    # =========================================================================
+    with gr.Column(visible=False) as mode_c_container:
+        with gr.Row():
+            sync_kaggle_btn = gr.Button(
+                "🔄 Sync Kaggle & Fetch Today's Schedule",
+                elem_classes=["btn-primary"],
+                scale=6
+            )
+            refresh_sched_btn = gr.Button(
+                "📅 Refresh Schedule Only (Skip Kaggle)",
+                elem_classes=["btn-swap"],
+                scale=6
+            )
+
+        mode_c_output = gr.HTML(
+            value=render_daily_schedule_html(),
+            label="Published ATP Schedule Predictions"
+        )
+
+    # =========================================================================
     # Event Wiring & Callbacks
     # =========================================================================
     # 1. Mode Switch Toggle
     def on_mode_change(selected_mode):
-        is_mode_a = (selected_mode == "⚡ Upcoming Match Predictor")
-        return gr.update(visible=is_mode_a), gr.update(visible=not is_mode_a)
+        is_a = (selected_mode == "⚡ Upcoming Match Predictor")
+        is_b = (selected_mode == "🔍 Historical Match Backtracker")
+        is_c = (selected_mode == "📅 Daily Schedule Feed")
+        return gr.update(visible=is_a), gr.update(visible=is_b), gr.update(visible=is_c)
 
     mode_radio.change(
         fn=on_mode_change,
         inputs=[mode_radio],
-        outputs=[mode_a_container, mode_b_container]
+        outputs=[mode_a_container, mode_b_container, mode_c_container]
+    )
+
+    def on_daily_sync(skip_kaggle: bool):
+        try:
+            res = run_daily_pipeline(skip_kaggle=skip_kaggle)
+            return render_daily_schedule_html(res["predictions"])
+        except Exception as exc:
+            return f"<div style='color:#f43f5e; padding:16px;'>Daily sync failed: {exc}</div>"
+
+    sync_kaggle_btn.click(
+        fn=lambda: on_daily_sync(False),
+        inputs=[],
+        outputs=[mode_c_output]
+    )
+    refresh_sched_btn.click(
+        fn=lambda: on_daily_sync(True),
+        inputs=[],
+        outputs=[mode_c_output]
     )
 
     # 2. Swap Players

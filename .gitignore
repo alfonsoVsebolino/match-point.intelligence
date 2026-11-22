@@ -2,3 +2,6 @@ CONTEXT.md
 notebook_breakdown.md
 __pycache__/
 .pytest_cache/
+.venv/
+data/raw_atp_tennis.csv
+.agents/teamwork/

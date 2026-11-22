@@ -15,7 +15,12 @@ seaborn>=0.12.0
 
 # Ingestion & Execution
 kagglehub>=0.2.0
+requests>=2.31.0
 jupyter>=1.0.0
 
 # Interactive GUI & Serving
 gradio>=4.0.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.0.0
+httpx>=0.27.0
