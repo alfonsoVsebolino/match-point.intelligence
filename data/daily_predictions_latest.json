@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-22T08:15:29.961664+00:00",
+  "generated_at": "2026-11-22T14:17:02.713705+00:00",
   "target_date": "2026-11-22",
   "source": "espn_atp",
   "fixture_count": 15,
@@ -826,7 +826,7 @@
         "h2h_p2_wins": 6
       },
       "snapshot_locked": false,
-      "predicted_at": "2026-11-22T08:15:29.961664+00:00"
+      "predicted_at": "2026-11-22T14:17:02.713705+00:00"
     }
   ]
 }
