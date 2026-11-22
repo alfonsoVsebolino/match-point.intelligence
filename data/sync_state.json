@@ -1,0 +1,14 @@
+{
+  "status": "synced",
+  "dataset_handle": "dissfya/atp-tennis-2000-2023daily-pull",
+  "synced_at": "2026-11-22T08:15:28.742265+00:00",
+  "raw_sha256": "ab608e2623e8878b95e030d6eda47c598cda0b53f8009be1cd88d10e35256758",
+  "raw_rows": 69100,
+  "completed_rows": 69098,
+  "pending_kaggle_rows": 0,
+  "train_rows": 61560,
+  "test_rows": 7538,
+  "new_matches": 747,
+  "players_tracked": 1767,
+  "latest_match_date": "2026-11-01"
+}
