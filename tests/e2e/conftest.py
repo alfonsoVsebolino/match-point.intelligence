@@ -1,6 +1,6 @@
 """Shared E2E fixtures, server lifecycle helpers, and opaque-box math/contract oracles.
 
-IMPORTANT: Never import `server` at module top-level so `pytest tests_e2e --collect-only`
+IMPORTANT: Never import `server` at module top-level so `pytest tests/e2e --collect-only`
 succeeds cleanly before `server.py` exists.
 """
 
@@ -24,7 +24,7 @@ import pytest
 
 
 TESTS_E2E_DIR = Path(__file__).resolve().parent
-REPO_ROOT = TESTS_E2E_DIR.parent
+REPO_ROOT = TESTS_E2E_DIR.parent.parent
 CDP_RUNNER_PATH = TESTS_E2E_DIR / "cdp_runner.mjs"
 
 RADAR_AXES = (

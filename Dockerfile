@@ -13,8 +13,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY server.py atp_engine.py atp_service.py atp_data.py atp_features.py atp_cards.py atp_daily_sync.py ./
-COPY atp_inference_bundle.joblib train_features.csv test_features.csv match_scores.csv ./
+COPY server.py atp_engine.py atp_service.py atp_cards.py ./
+COPY pipeline/ ./pipeline/
+COPY models/ ./models/
+COPY train_features.csv test_features.csv match_scores.csv ./
 COPY web/ ./web/
 
 RUN groupadd --system appuser \

@@ -10,7 +10,7 @@ from typing import Any
 import httpx
 import pytest
 
-from tests_e2e.conftest import free_port, run_cdp_scenario, start_ephemeral_server
+from tests.e2e.conftest import free_port, run_cdp_scenario, start_ephemeral_server
 
 pytestmark = pytest.mark.tier4
 

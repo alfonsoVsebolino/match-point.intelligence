@@ -23,7 +23,7 @@ def inspect(split: str, tournament: str, match_idx) -> dict:
 
 def get_daily_schedule() -> dict:
     """Return latest saved daily schedule predictions and sync status."""
-    import atp_data
+    from pipeline import atp_data
     return atp_data.get_daily_predictions()
 
 
@@ -33,7 +33,7 @@ def sync_daily_schedule(
     allow_espn: bool = True,
 ) -> dict:
     """Run daily Kaggle sync + published schedule prediction and return structured results."""
-    import atp_daily_sync
+    from pipeline import atp_daily_sync
     return atp_daily_sync.run_daily_pipeline(
         skip_kaggle=skip_kaggle,
         schedule_file=schedule_file,

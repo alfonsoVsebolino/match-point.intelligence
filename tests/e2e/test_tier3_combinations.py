@@ -9,7 +9,7 @@ from typing import Any
 import httpx
 import pytest
 
-from tests_e2e.conftest import (
+from tests.e2e.conftest import (
     assert_valid_features_31,
     assert_valid_player_card,
     assert_valid_treeshap,
@@ -25,8 +25,7 @@ pytestmark = pytest.mark.tier3
 
 def _isolate_schedule_storage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Redirect schedule/sync disk paths to tmp_path so repo data/ is never mutated."""
-    import atp_daily_sync
-    import atp_data
+    from pipeline import atp_daily_sync, atp_data
 
     history_dir = tmp_path / "predictions_history"
     history_dir.mkdir(parents=True, exist_ok=True)
@@ -247,7 +246,7 @@ def test_f5_f7_populated_schedule_power_devig_and_value_edge_kpi(
 ) -> None:
     """6. F5 x F7: Populated schedule computes Power-Method bm_prob, edge_lgb_p1, kelly_p1_pct & value_edges_count."""
     _isolate_schedule_storage(tmp_path, monkeypatch)
-    import atp_daily_sync
+    from pipeline import atp_daily_sync
 
     fixtures = [
         {
@@ -307,7 +306,7 @@ def test_f2_f7_schedule_divergent_fixture_kpi(
 ) -> None:
     """7. F2 x F7: Divergent fixture in daily schedule sets is_divergent=True & increments divergent_count."""
     _isolate_schedule_storage(tmp_path, monkeypatch)
-    import atp_daily_sync
+    from pipeline import atp_daily_sync
 
     with create_inprocess_client(monkeypatch) as client:
         pred_resp = client.post(
@@ -362,7 +361,7 @@ def test_f1_f7_schedule_refresh_updates_healthz_count(
 ) -> None:
     """8. F1 x F7: POST /api/v1/schedule/refresh updates schedule_fixtures_count in GET /healthz."""
     _isolate_schedule_storage(tmp_path, monkeypatch)
-    import atp_daily_sync
+    from pipeline import atp_daily_sync
 
     class _FakeEspnResp:
         def raise_for_status(self) -> None:
@@ -458,7 +457,7 @@ def test_f5_f9_daily_sync_power_method_devig_parity(
 ) -> None:
     """10. F5 x F9: atp_daily_sync Power-Method de-vig matches POST /api/v1/predict (< 1e-4)."""
     _isolate_schedule_storage(tmp_path, monkeypatch)
-    import atp_daily_sync
+    from pipeline import atp_daily_sync
 
     with create_inprocess_client(monkeypatch) as client:
         pred_resp = client.post(

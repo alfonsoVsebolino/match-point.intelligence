@@ -2,7 +2,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 import gradio as gr
-from atp_data import (
+from pipeline.atp_data import (
     SPLIT_CHOICES,
     get_tournaments_for_split,
     get_matches_for_tournament,
@@ -16,7 +16,7 @@ from atp_engine import (
     predict_matchup,
     inspect_historical_match
 )
-from atp_daily_sync import render_daily_schedule_html, run_daily_pipeline
+from pipeline.atp_daily_sync import render_daily_schedule_html, run_daily_pipeline
 
 # ---------------------------------------------------------------------------
 # UI Theme & Styling

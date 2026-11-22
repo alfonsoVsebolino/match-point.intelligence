@@ -5,7 +5,7 @@ import threading
 import time
 import tkinter as tk
 from tkinter import ttk
-from atp_data import SPLIT_CHOICES, get_tournaments_for_split, get_matches_for_tournament
+from pipeline.atp_data import SPLIT_CHOICES, get_tournaments_for_split, get_matches_for_tournament
 from atp_engine import DEFAULT_P1, DEFAULT_P2, active_players, all_players
 import atp_service
 

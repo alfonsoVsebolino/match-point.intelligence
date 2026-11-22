@@ -60,11 +60,11 @@ jobs:
           if [ "${{ github.event.inputs.skip_kaggle }}" = "true" ]; then
             ARGS="$ARGS --no-kaggle"
           fi
-          python atp_daily_sync.py run-daily $ARGS
+          python pipeline/atp_daily_sync.py run-daily $ARGS
 
       - name: Verify sync status and fixture summary
         run: |
-          python -c "import atp_data; print('sync_status:', atp_data.get_sync_status()); print('fixtures_count:', len(atp_data.get_daily_predictions().get('fixtures', [])))"
+          python -c "from pipeline import atp_data; print('sync_status:', atp_data.get_sync_status()); print('fixtures_count:', len(atp_data.get_daily_predictions().get('fixtures', [])))"
 
       - name: Upload daily prediction artifacts
         uses: actions/upload-artifact@v4

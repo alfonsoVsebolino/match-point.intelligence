@@ -3,10 +3,8 @@ import os
 import pandas as pd
 import pytest
 
-import atp_data
-import atp_daily_sync
+from pipeline import atp_daily_sync, atp_data, atp_features
 import atp_engine
-import atp_features
 import atp_service
 
 

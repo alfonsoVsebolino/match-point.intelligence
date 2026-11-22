@@ -5,13 +5,16 @@
 venv/
 .agents/
 *.ipynb
+**/*.ipynb
+notebooks/
 docs/
 specs/
 issues/
 __pycache__/
 *.py[cod]
 .pytest_cache/
-tests_e2e/
+tests/
+pytest.ini
 *.md
 gradio_app.py
 tk_app.py

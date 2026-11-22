@@ -19,6 +19,7 @@ import json
 import math
 import os
 import re
+import sys
 import tempfile
 import unicodedata
 from datetime import datetime, timezone
@@ -30,11 +31,12 @@ import pandas as pd
 import requests
 from scipy.optimize import brentq
 
-import atp_data
-import atp_engine
-import atp_features
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
 
-BASE_DIR = os.path.dirname(__file__)
+import atp_engine
+from pipeline import atp_data, atp_features
 DATA_DIR = os.path.join(BASE_DIR, "data")
 HISTORY_DIR = os.path.join(DATA_DIR, "predictions_history")
 
@@ -948,7 +950,7 @@ def render_daily_schedule_html(payload: Optional[dict[str, Any]] = None) -> str:
         return header_html + """
         <div style="background:#0f172a; border:1px dashed #334155; border-radius:12px; padding:24px; text-align:center; color:#94a3b8;">
             <div style="font-size:15px; font-weight:700; color:#f8fafc; margin-bottom:6px;">No Published ATP Fixtures Loaded</div>
-            <div style="font-size:13px;">Run <code>python atp_daily_sync.py run-daily</code> or click <strong>Sync Kaggle &amp; Fetch Schedule</strong> to pull today's ATP order of play.</div>
+            <div style="font-size:13px;">Run <code>python pipeline/atp_daily_sync.py run-daily</code> or click <strong>Sync Kaggle &amp; Fetch Schedule</strong> to pull today's ATP order of play.</div>
         </div>
         """
 

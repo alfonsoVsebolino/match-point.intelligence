@@ -1,7 +1,7 @@
 import pytest
 import pandas as pd
 import gradio_app
-import atp_data
+from pipeline import atp_data
 import atp_engine
 import atp_cards
 

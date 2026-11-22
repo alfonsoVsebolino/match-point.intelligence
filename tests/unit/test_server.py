@@ -6,8 +6,7 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
-import atp_daily_sync
-import atp_data
+from pipeline import atp_daily_sync, atp_data
 import atp_engine
 import server
 

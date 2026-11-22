@@ -2,14 +2,14 @@
 
 ## Architecture
 - **Stateless Cloud Run Web Service (`server.py`)**: Single FastAPI + Uvicorn process listening on `0.0.0.0:${PORT:-8080}`, serving both `/api/v1/*` JSON endpoints and static frontend assets (`web/` mounted at `/` and `/static`), with `GET /healthz` for Cloud Run health checks.
-- **Thread-Safe ML Inference & Explainability Core (`atp_engine.py`, `atp_service.py`, `atp_data.py`)**:
-  - Pre-trained `atp_inference_bundle.joblib` (LightGBM Champion + Regularized Logistic Regression Baseline, 31 delta predictors).
+- **Thread-Safe ML Inference & Explainability Core (`atp_engine.py`, `atp_service.py`, `pipeline/atp_data.py`)**:
+  - Pre-trained `models/atp_inference_bundle.joblib` (LightGBM Champion + Regularized Logistic Regression Baseline, 31 delta predictors).
   - Dual-pass inversion symmetrization (`|P(P1) + P(P2) - 1.0| < 1e-5`) and non-linear divergence check (`|P_LGBM - P_LR| > 0.15`).
   - In-memory H2H pair index built at startup/`reload_state()` for `<15ms` inference latency.
   - Native LightGBM TreeSHAP (`champion_lgb.booster_.predict(X, pred_contrib=True)`) for bidirectional "Tug-of-War" feature contributions + LogReg linear contribution comparison.
   - Deterministic Arcade player OVR (`0–99`), Playstyle Trait Chips, and 6-Axis Radar profile derivation from `latest_player_state` + `player_surface_wr`.
   - Power-Method de-vigging (`q1^(1/k) + q2^(1/k) = 1.0`), Edge % (`P_LGBM - P_implied`), and Quarter-Kelly (`0.25 * f*`, capped at `2.5%`).
-- **Offloaded "Hydrogen" Worker (`atp_daily_sync.py` + `.github/workflows/daily_atp_sync.yml`)**:
+- **Offloaded "Hydrogen" Worker (`pipeline/atp_daily_sync.py` + `.github/workflows/daily_atp_sync.yml`)**:
   - Routine heavy tasks (daily Kaggle dataset sync, 68k+ rolling feature recomputation, `player_state_cache.joblib`, batch ESPN schedule predictions) remain decoupled from web request latency and run out-of-band via GitHub Actions / Hydrogen worker / Cloud Run Job.
   - Cloud Run web app handles missing/unseeded `data/` gracefully with clean empty-state telemetry and an optional lightweight ESPN scoreboard refresh (`POST /api/v1/schedule/refresh` without Kaggle pull).
 - **Dedicated Frontend (`web/` — ESPN Broadcast Scoreboard + Dark Neon Arena)**:
@@ -45,8 +45,11 @@ Every Step 0 Survey feature & locked-in user requirement is assigned to a milest
 - `server.py` — FastAPI application entrypoint (`app`), API routes (`/healthz`, `/api/v1/*`), static file serving (`web/`)
 - `atp_engine.py` — Bundle loader, H2H index, dual-pass symmetric inference, TreeSHAP contributions, Arcade player profile & radar metrics, Power-Method de-vig/Kelly, structured historical inspector
 - `atp_service.py` — Thread-safe Python facade (`predict`, `inspect`, `get_daily_schedule`, `sync_daily_schedule`) preserving backward compatibility with `tk_app.py` and tests
-- `atp_data.py` — CSV/JSON dataset access and split/tournament/matchup helpers
-- `atp_daily_sync.py` — Offloaded Hydrogen daily Kaggle sync & ESPN schedule batch predictor
+- `pipeline/` — Data pipeline, feature engineering, dataset access, and daily sync package:
+  - `pipeline/atp_data.py` — CSV/JSON dataset access and split/tournament/matchup helpers
+  - `pipeline/atp_features.py` — Leakage-free 7-phase rolling feature & score parser
+  - `pipeline/atp_daily_sync.py` — Offloaded Hydrogen daily Kaggle sync & ESPN schedule batch predictor
+  - `pipeline/sync_data.py` — Kaggle ETL & data synchronization helper
 - `atp_cards.py`, `gradio_app.py`, `tk_app.py` — Existing UIs (must remain intact and passing existing tests)
 - `web/` — Dedicated frontend static bundle:
   - `web/index.html` — Semantic ESPN Broadcast Arena shell + Ticker + 3 Modes + Arcade Suite containers
@@ -55,7 +58,10 @@ Every Step 0 Survey feature & locked-in user requirement is assigned to a milest
   - `web/arcade_cards.js` — Neon FIFA/TopSpin Trading Cards + Trait Chips + Tale-of-the-Tape renderer
   - `web/charts.js` — Custom SVG 6-Axis Neon Spider/Radar Duel Chart, Bidirectional TreeSHAP Tug-of-War, Dual-Model Divergence Gauge
 - `Dockerfile`, `.dockerignore`, `requirements.txt` — Google Cloud Run container packaging
-- `tests_e2e/` — Requirement-driven opaque-box E2E tests (`TEST_INFRA.md`, `TEST_READY.md`)
+- `pytest.ini`, `tests/` — Organized test suite:
+  - `tests/unit/` — Unit & API tests (`test_server.py`, `test_atp_service.py`, `test_daily_sync.py`, `test_pipeline.py`)
+  - `tests/ui/` — UI regression tests (`test_tk_app.py`, `test_gradio_app.py`)
+  - `tests/e2e/` — Requirement-driven opaque-box E2E tests (`TEST_INFRA.md`, `TEST_READY.md`)
 
 ## Interface Contracts
 

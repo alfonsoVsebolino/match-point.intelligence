@@ -20,7 +20,8 @@ MatchPoint.intelligence splits real-time serving from heavy batch data engineeri
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
 │            OFFLOADED "HYDROGEN" WORKER (GitHub Actions / Cloud Run Job)    │
-│  atp_daily_sync.py + .github/workflows/daily_atp_sync.yml (06:00 & 14:00)  │
+│  pipeline/atp_daily_sync.py + .github/workflows/daily_atp_sync.yml         │
+│  • Scheduled twice daily at 06:00 & 14:00 UTC                              │
 │  • Pulls dissfya/atp-tennis-2000-2023daily-pull via kagglehub              │
 │  • Recomputes leakage-free rolling features & data/player_state_cache      │
 │  • Ingests ESPN ATP schedule & outputs Power-Method de-vig + Kelly JSON/CSV│
@@ -63,7 +64,7 @@ python server.py
 
 Open `http://127.0.0.1:8080` in your browser.
 
-> **Note on `scikit-learn`**: `requirements.txt` pins `scikit-learn>=1.6.0,<1.7.0` (`1.6.1`) for clean deserialization of `atp_inference_bundle.joblib`.
+> **Note on `scikit-learn`**: `requirements.txt` pins `scikit-learn>=1.6.0,<1.7.0` (`1.6.1`) for clean deserialization of `models/atp_inference_bundle.joblib`.
 
 ### HTTP / REST API Endpoints (`server.py`)
 
@@ -114,26 +115,26 @@ gcloud run deploy matchpoint-intelligence \
 
 ## 4. Decoupled "Hydrogen" Routine Worker Architecture
 
-Heavy batch workflows are intentionally decoupled from the Cloud Run request path and executed out-of-band by the **Hydrogen Worker** (`atp_daily_sync.py` + `.github/workflows/daily_atp_sync.yml`, or an equivalent Cloud Run Job):
+Heavy batch workflows are intentionally decoupled from the Cloud Run request path and executed out-of-band by the **Hydrogen Worker** (`pipeline/atp_daily_sync.py` + `.github/workflows/daily_atp_sync.yml`, or an equivalent Cloud Run Job):
 
 1. **Kaggle Daily Pull**: Downloads the unversioned `dissfya/atp-tennis-2000-2023daily-pull` release via `kagglehub` (skipping feature recompute automatically if SHA-256 is unchanged).
-2. **Rolling Feature & State Cache Refresh**: Recomputes leakage-free rolling features (`test_features.csv`, `match_scores.csv`) and updates `data/player_state_cache.joblib` while keeping trained model weights (`atp_inference_bundle.joblib`) fixed.
+2. **Rolling Feature & State Cache Refresh**: Recomputes leakage-free rolling features (`test_features.csv`, `match_scores.csv`) and updates `data/player_state_cache.joblib` while keeping trained model weights (`models/atp_inference_bundle.joblib`) fixed.
 3. **Batch ESPN Schedule Predictions + Power-Method Edge/Kelly**: Fetches published ATP singles fixtures (ESPN public scoreboard API or local CSV/JSON drop-in), enforces T-30m frozen pre-match snapshots, computes Power-Method de-vigged implied probabilities and Quarter-Kelly stakes, and writes `data/daily_predictions_latest.json`, `data/daily_predictions_latest.csv`, and `data/predictions_history/predictions_YYYY-MM-DD.csv`.
 
-### CLI Usage (`atp_daily_sync.py`)
+### CLI Usage (`pipeline/atp_daily_sync.py`)
 
 ```bash
 # Run full daily Kaggle sync + published schedule prediction
-python atp_daily_sync.py run-daily
+python pipeline/atp_daily_sync.py run-daily
 
 # Run schedule prediction only (skip Kaggle download, matching Cloud Run lightweight refresh)
-python atp_daily_sync.py run-daily --no-kaggle
+python pipeline/atp_daily_sync.py run-daily --no-kaggle
 
 # Sync Kaggle results & refresh player state cache only
-python atp_daily_sync.py sync
+python pipeline/atp_daily_sync.py sync
 
 # Predict a custom CSV/JSON schedule file without external API calls
-python atp_daily_sync.py predict-schedule --schedule-file data/upcoming_schedule.csv --no-espn
+python pipeline/atp_daily_sync.py predict-schedule --schedule-file data/upcoming_schedule.csv --no-espn
 ```
 
 ### Automated GitHub Actions Schedule
@@ -160,7 +161,7 @@ python tk_app.py
 ### Kaggle ETL & Feature Engineering Notebook
 To inspect or re-run the 7-phase data cleaning, score parsing, rolling statistics computation, and feature selection:
 ```bash
-jupyter notebook eda_and_feature_engineering.ipynb
+jupyter notebook notebooks/eda_and_feature_engineering.ipynb
 ```
 
 ---
@@ -204,25 +205,36 @@ Detailed derivations and protocols:
 ├── requirements.txt                      # Runtime & serving dependencies
 ├── atp_engine.py                         # Symmetrized inference, H2H index, TreeSHAP, Arcade cards, Power-Method & Kelly
 ├── atp_service.py                        # Thread-safe Python facade for web, desktop, and tests
-├── atp_data.py                           # Dataset splits, sync telemetry, and schedule JSON loader
-├── atp_features.py                       # Leakage-free 7-phase rolling feature & score parser
-├── atp_daily_sync.py                     # Hydrogen worker: Kaggle sync, ESPN ingestion, Power-Method & Kelly batch predictions
+├── pipeline/                             # Data pipeline, feature engineering, dataset access, and daily sync package
+│   ├── __init__.py                       # Package marker
+│   ├── atp_data.py                       # Dataset splits, sync telemetry, and schedule JSON loader
+│   ├── atp_features.py                   # Leakage-free 7-phase rolling feature & score parser
+│   ├── atp_daily_sync.py                 # Hydrogen worker: Kaggle sync, ESPN ingestion, Power-Method & Kelly batch predictions
+│   └── sync_data.py                      # Kaggle ETL & data synchronization helper
 ├── atp_cards.py                          # HTML diagnostic card renderer for Gradio fallback
 ├── gradio_app.py                         # Legacy standalone Gradio console
 ├── tk_app.py                             # Native Tkinter desktop GUI
-├── atp_inference_bundle.joblib           # Serialized LightGBM, LogReg, and feature encoders
+├── models/                               # Versioned trained ML model artifacts
+│   └── atp_inference_bundle.joblib       # Serialized LightGBM, LogReg, and feature encoders
 ├── train_features.csv                    # 31 engineered predictors (2000–2023 training set)
 ├── test_features.csv                     # 31 engineered predictors (2024–2026 holdout set)
 ├── match_scores.csv                      # Historical match score strings for replay
-├── eda_and_feature_engineering.ipynb     # 7-phase ETL, rolling metrics, and leakage-free splits notebook
+├── notebooks/                            # Exploratory analysis & daily loader Jupyter notebooks
+│   ├── eda_and_feature_engineering.ipynb # 7-phase ETL, rolling metrics, and leakage-free splits notebook
+│   └── load.ipynb                        # Daily Kaggle pull & schedule prediction loader notebook
 ├── .github/workflows/daily_atp_sync.yml  # Hydrogen automated twice-daily GitHub Actions offload worker
-├── test_server.py                        # FastAPI endpoint & contract tests
-├── test_atp_service.py                   # Thread-safe inference & TreeSHAP unit tests
-├── test_daily_sync.py                    # Kaggle sync, ESPN parser, Power-Method de-vig & Quarter-Kelly tests
-├── test_gradio_app.py                    # Gradio app regression tests
-├── test_tk_app.py                        # Tkinter desktop app tests
-├── test_pipeline.py                      # Pipeline sanity test
-├── tests_e2e/                            # Opaque-box E2E verification suite
+├── pytest.ini                            # Pytest configuration (`pythonpath = .`, `testpaths = tests`)
+├── tests/                                # Organized test suite
+│   ├── __init__.py                       # Test suite package marker
+│   ├── unit/                             # Unit & API integration tests
+│   │   ├── test_server.py                # FastAPI endpoint & contract tests
+│   │   ├── test_atp_service.py           # Thread-safe inference & TreeSHAP unit tests
+│   │   ├── test_daily_sync.py            # Kaggle sync, ESPN parser, Power-Method de-vig & Quarter-Kelly tests
+│   │   └── test_pipeline.py              # Pipeline sanity test
+│   ├── ui/                               # Desktop & legacy UI regression tests
+│   │   ├── test_gradio_app.py            # Gradio app regression tests
+│   │   └── test_tk_app.py                # Tkinter desktop app tests
+│   └── e2e/                              # Opaque-box E2E verification suite (Tiers 1–4)
 ├── docs/                                 # Prototype UI specs & modeling guides
 └── specs/                                # Modular platform engineering specifications (01–07)
 ```

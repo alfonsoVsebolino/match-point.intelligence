@@ -13,12 +13,11 @@ import re
 import pytest
 import requests
 
-import atp_daily_sync
-import atp_data
+from pipeline import atp_daily_sync, atp_data
 import atp_engine
 import atp_service
 
-from tests_e2e.conftest import (
+from tests.e2e.conftest import (
     RADAR_AXES,
     REPO_ROOT,
     assert_valid_features_31,

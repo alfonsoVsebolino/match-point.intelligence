@@ -1,3 +1,4 @@
+from pathlib import Path
 import subprocess
 import sys
 import threading
@@ -6,13 +7,15 @@ import pytest
 import atp_engine
 from atp_engine import DEFAULT_P1, DEFAULT_P2, active_players, all_players
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
 def test_no_gradio_imported():
     cmd = [
         sys.executable,
         "-c",
         "import tk_app, sys; assert 'gradio' not in sys.modules, 'gradio was unexpectedly imported'"
     ]
-    res = subprocess.run(cmd, capture_output=True, text=True)
+    res = subprocess.run(cmd, cwd=str(REPO_ROOT), capture_output=True, text=True)
     assert res.returncode == 0, f"Import check failed: {res.stderr}"
 
 def test_constants_and_defaults():
@@ -178,7 +181,7 @@ def test_format_key_stats():
     assert res_tied["h2h"]["color"] == "#38bdf8"
 
 def test_resolve_split_change():
-    from atp_data import SPLIT_CHOICES
+    from pipeline.atp_data import SPLIT_CHOICES
     from tk_app import resolve_split_change
     tourns, first_tourn, matches, first_match_id = resolve_split_change(SPLIT_CHOICES[0])
     assert isinstance(tourns, list) and len(tourns) > 0
@@ -194,7 +197,7 @@ def test_resolve_split_change():
     assert mid_empty == ""
 
 def test_resolve_tournament_change():
-    from atp_data import SPLIT_CHOICES, get_tournaments_for_split
+    from pipeline.atp_data import SPLIT_CHOICES, get_tournaments_for_split
     from tk_app import resolve_tournament_change
     tourns = get_tournaments_for_split(SPLIT_CHOICES[0])
     matches, first_match_id = resolve_tournament_change(SPLIT_CHOICES[0], tourns[0])
@@ -365,7 +368,7 @@ def test_gui_smoke_and_acceptance_criteria():
         # -------------------------------------------------------------------
         # Historical Tab Smoke & Acceptance Criteria
         # -------------------------------------------------------------------
-        from atp_data import SPLIT_CHOICES
+        from pipeline.atp_data import SPLIT_CHOICES
 
         # Baseline checks for historical tab
         assert app.split_var.get() == SPLIT_CHOICES[0]
@@ -481,7 +484,7 @@ def test_gui_smoke_and_acceptance_criteria():
 
 
 def test_readme_launch_docs():
-    with open("README.md", "r", encoding="utf-8") as f:
+    with open(REPO_ROOT / "README.md", "r", encoding="utf-8") as f:
         content = f.read()
     assert "python tk_app.py" in content
     assert "python3-tk" in content

@@ -20,12 +20,12 @@ builtins._RemainderColsList = _RemainderColsList
 import sklearn.compose._column_transformer
 sklearn.compose._column_transformer._RemainderColsList = _RemainderColsList
 
-import atp_data
-from atp_data import get_df_for_split
+from pipeline import atp_data
+from pipeline.atp_data import get_df_for_split
 from atp_cards import render_diagnostic_card
 
-BASE_DIR = os.path.dirname(__file__)
-BUNDLE_PATH = os.path.join(BASE_DIR, "atp_inference_bundle.joblib")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BUNDLE_PATH = os.path.join(BASE_DIR, "models", "atp_inference_bundle.joblib")
 PLAYER_STATE_CACHE_PATH = os.path.join(BASE_DIR, "data", "player_state_cache.joblib")
 bundle = joblib.load(BUNDLE_PATH)
 

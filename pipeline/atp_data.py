@@ -2,7 +2,7 @@ import json
 import os
 import pandas as pd
 
-BASE_DIR = os.path.dirname(__file__)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 TEST_CSV_PATH = os.path.join(BASE_DIR, "test_features.csv")
 TRAIN_CSV_PATH = os.path.join(BASE_DIR, "train_features.csv")

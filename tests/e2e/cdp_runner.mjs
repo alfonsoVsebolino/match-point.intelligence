@@ -3,7 +3,7 @@
  * Pure Node v24 ESM Headless Chromium CDP Runner (zero external npm dependencies).
  *
  * Usage:
- *   node tests_e2e/cdp_runner.mjs --base-url http://127.0.0.1:8080 --scenario boot_and_theme --width 1440 --height 900
+ *   node tests/e2e/cdp_runner.mjs --base-url http://127.0.0.1:8080 --scenario boot_and_theme --width 1440 --height 900
  */
 
 import { spawn } from 'node:child_process';

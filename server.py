@@ -13,8 +13,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-import atp_daily_sync
-import atp_data
+from pipeline import atp_daily_sync, atp_data
 import atp_engine
 import atp_service
 
