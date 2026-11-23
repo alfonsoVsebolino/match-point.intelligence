@@ -1,16 +1,1 @@
-Date,Tournament,Surface,Series,Round,Status,Player_1,Player_2,Prob_LGB_P1,Prob_LR_P1,Predicted_Winner,Is_Divergent,Div_Delta,Rank_Diff,H2H_P1_Wins,H2H_P2_Wins,Odd_1,Odd_2,BM_Implied_P1,Edge_LGB_P1,Overround,Power_K,Kelly_P1_Pct,Kelly_P2_Pct,Edge_Signal,Snapshot_Locked,Source
-2026-11-15,Nitto ATP Finals,Hard,Masters Cup,Group Stage,Completed,Jodar R.,Zverev A.,0.243909,0.15102,Zverev A.,False,0.092889,9.0,0,1,,,,,,,,,,True,espn_atp
-2026-11-15,Nitto ATP Finals,Hard,Masters Cup,Group Stage,Completed,Fils A.,Shelton B.,0.44355,0.427185,Shelton B.,False,0.016365,4.0,1,1,,,,,,,,,,True,espn_atp
-2026-11-16,Nitto ATP Finals,Hard,Masters Cup,Group Stage,Completed,Tiafoe F.,Alcaraz C.,0.123899,0.181166,Alcaraz C.,False,0.057267,6.0,1,2,,,,,,,,,,True,espn_atp
-2026-11-16,Nitto ATP Finals,Hard,Masters Cup,Group Stage,Completed,Cobolli F.,Medvedev D.,0.216151,0.276961,Medvedev D.,False,0.06081,1.0,1,2,,,,,,,,,,True,espn_atp
-2026-11-17,Nitto ATP Finals,Hard,Masters Cup,Group Stage,Completed,Jodar R.,Fils A.,0.467319,0.51461,Fils A.,False,0.047291,3.0,2,1,,,,,,,,,,True,espn_atp
-2026-11-17,Nitto ATP Finals,Hard,Masters Cup,Group Stage,Completed,Shelton B.,Zverev A.,0.298431,0.181141,Zverev A.,False,0.11729,2.0,0,6,,,,,,,,,,True,espn_atp
-2026-11-18,Nitto ATP Finals,Hard,Masters Cup,Group Stage,Completed,Medvedev D.,Alcaraz C.,0.325571,0.329001,Alcaraz C.,False,0.00343,2.0,3,7,,,,,,,,,,True,espn_atp
-2026-11-18,Nitto ATP Finals,Hard,Masters Cup,Group Stage,Completed,Tiafoe F.,Cobolli F.,0.583435,0.533643,Tiafoe F.,False,0.049792,3.0,4,1,,,,,,,,,,True,espn_atp
-2026-11-19,Nitto ATP Finals,Hard,Masters Cup,Group Stage,Completed,Jodar R.,Shelton B.,0.428429,0.409688,Shelton B.,False,0.018742,7.0,0,0,,,,,,,,,,True,espn_atp
-2026-11-19,Nitto ATP Finals,Hard,Masters Cup,Group Stage,Completed,Fils A.,Zverev A.,0.236514,0.152872,Zverev A.,False,0.083642,6.0,2,5,,,,,,,,,,True,espn_atp
-2026-11-20,Nitto ATP Finals,Hard,Masters Cup,Group Stage,Completed,Cobolli F.,Alcaraz C.,0.124032,0.168859,Alcaraz C.,False,0.044827,3.0,0,1,,,,,,,,,,True,espn_atp
-2026-11-20,Nitto ATP Finals,Hard,Masters Cup,Group Stage,Completed,Tiafoe F.,Medvedev D.,0.237575,0.291456,Medvedev D.,False,0.053881,4.0,1,6,,,,,,,,,,True,espn_atp
-2026-11-21,Nitto ATP Finals,Hard,Masters Cup,Semifinal,Completed,Shelton B.,Alcaraz C.,0.251121,0.285986,Alcaraz C.,False,0.034865,1.0,1,2,,,,,,,,,,True,espn_atp
-2026-11-21,Nitto ATP Finals,Hard,Masters Cup,Semifinal,Completed,Medvedev D.,Zverev A.,0.45752,0.251873,Zverev A.,True,0.205646,3.0,13,7,,,,,,,,,,True,espn_atp
-2026-11-22,Nitto ATP Finals,Hard,Masters Cup,Final,LineupsConfirmed,Alcaraz C.,Zverev A.,0.608896,0.383247,Alcaraz C.,True,0.225649,1.0,7,6,,,,,,,,,,False,espn_atp
+
