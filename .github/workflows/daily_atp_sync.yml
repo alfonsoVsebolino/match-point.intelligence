@@ -93,7 +93,7 @@ jobs:
             fi
           done
           if ! git diff --cached --quiet; then
-            git commit -m "chore(data): daily ATP Kaggle sync and schedule predictions [skip ci]"
+            git commit -m "chore(data): daily ATP Kaggle sync and schedule predictions"
             git push
           else
             echo "No changes to commit."
