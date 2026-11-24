@@ -1,3 +1,18 @@
 {
-  "buildPath": "code"
+  "buildPath": "code",
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "web/index.html"
+        ],
+        "createdAt": "2026-11-24T14:54:34.976Z",
+        "reason": "agent verified: FastAPI mounts web/ at /static/ at runtime so static HTML scan misses /static/styles.css; live DOM h1 is 32-48px vs 15px body"
+      }
+    ]
+  }
 }

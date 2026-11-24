@@ -1,8 +1,8 @@
-/* src/styles/tokens.css — baseline.ml Locked Risograph Option A System */
+/* web/tokens.css — matchpoint.ml Locked Risograph Option A System */
 
 @font-face {
   font-family: 'Sogea';
-  src: url('/fonts/Sogea-Regular.woff2') format('woff2');
+  src: local('Sogea');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
