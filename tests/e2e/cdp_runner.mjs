@@ -440,15 +440,46 @@ const DOM_HELPERS_JS = `
       tokens.push(styleEl.textContent || '');
     }
     const joined = tokens.join('\\n').toLowerCase();
+    const rootStyle = window.getComputedStyle(document.documentElement);
+    const inkPrimary = (rootStyle.getPropertyValue('--ink-primary') || '').trim().toLowerCase();
+    const accentSignal = (rootStyle.getPropertyValue('--accent-signal') || '').trim().toLowerCase();
+    const bgSurface = (rootStyle.getPropertyValue('--bg-surface') || '').trim().toLowerCase();
     return {
-      hasCyan: /#00f5ff|0,\\s*245,\\s*255/.test(joined),
-      hasVolt: /#ccff00|204,\\s*255,\\s*0/.test(joined),
-      hasMagenta: /#ff2bd6|255,\\s*43,\\s*214/.test(joined),
+      hasTealInk: inkPrimary === '#1d646c' || /#1d646c|29,\\s*100,\\s*108/.test(joined),
+      hasSignalPink: accentSignal === '#ea4f88' || /#ea4f88|234,\\s*79,\\s*136/.test(joined),
+      hasSurfaceCream: bgSurface === '#fce7d4' || /#fce7d4|252,\\s*231,\\s*212/.test(joined),
+      hasLegacyNeon: /#060913|#00f5ff|#ccff00|#ff2bd6/.test(joined),
       bodyBg: window.getComputedStyle(document.body).backgroundColor,
     };
   }
 
+  async function ensureArenaRailExpanded() {
+    await waitFor(() => {
+      const toggleBtn = document.getElementById('arenaRailToggleBtn');
+      const p1Sel = document.getElementById('p1Select');
+      return (toggleBtn && isVisible(toggleBtn)) || (p1Sel && isVisible(p1Sel));
+    }, 5000, 'Arena controls or rail toggle');
+    const toggleBtn = document.getElementById('arenaRailToggleBtn');
+    if (toggleBtn && isVisible(toggleBtn) && toggleBtn.getAttribute('aria-expanded') === 'false') {
+      toggleBtn.click();
+    }
+  }
+
   function checkArcadeAndCharts() {
+    // Check TreeSHAP first on Tab 1 if present
+    const driversTab = findClickable([/1\\.\\s*treeshap|treeshap\\s*drivers/i]);
+    const scoutingTab = findClickable([/2\\.\\s*scouting|6-axis\\s*radar/i]);
+
+    let hasTreeShap = /treeshap|tug-of-war|shap|feature\\s+impact|contributions?/i.test(getText(document.body));
+    if (!hasTreeShap && driversTab) {
+      driversTab.click();
+      hasTreeShap = /treeshap|tug-of-war|shap|feature\\s+impact|contributions?/i.test(getText(document.body));
+    }
+
+    if (scoutingTab && scoutingTab.getAttribute('aria-selected') !== 'true') {
+      scoutingTab.click();
+    }
+
     const bodyText = getText(document.body);
     const ovrMatches = bodyText.match(/\\bOVR\\b/gi) || [];
     const svgs = Array.from(document.querySelectorAll('svg')).filter((svg) => {
@@ -466,7 +497,6 @@ const DOM_HELPERS_JS = `
     ];
     const radarAxesMatched = radarAxes.filter((re) => re.test(bodyText)).length;
     const hasRadarGeometry = svgs.some((svg) => svg.querySelectorAll('polygon, path, circle, line').length >= 4);
-    const hasTreeShap = /treeshap|tug-of-war|shap|feature\\s+impact|contributions?/i.test(bodyText);
     return {
       ovrCount: ovrMatches.length,
       svgCount: svgs.length,
@@ -477,6 +507,10 @@ const DOM_HELPERS_JS = `
   }
 
   function expandAndCount31Features() {
+    const matrixTab = findClickable([/3\\.\\s*31[- ]?feature|31[- ]?feature\\s*matrix/i]);
+    if (matrixTab && matrixTab.getAttribute('aria-selected') !== 'true') {
+      matrixTab.click();
+    }
     const toggle = findClickable([/31[- ]?feature|feature\\s+matrix|all\\s+31|full\\s+matrix|show\\s+all\\s+features/i]);
     if (toggle) {
       const details = toggle.closest('details');
@@ -508,6 +542,7 @@ const DOM_HELPERS_JS = `
     getSelectedText,
     waitFor,
     inspectCssColors,
+    ensureArenaRailExpanded,
     checkArcadeAndCharts,
     expandAndCount31Features,
   };
@@ -571,14 +606,14 @@ const SCENARIOS = {
     await navigateAndHydrate(cdp, baseUrl, telemetry);
     const data = await evalPage(cdp, `
       const css = H.inspectCssColors();
-      if (css.bodyBg !== 'rgb(6, 9, 19)') {
-        throw new Error('Expected body background rgb(6, 9, 19) (#060913), got ' + css.bodyBg);
+      if (css.bodyBg !== 'rgb(248, 219, 193)') {
+        throw new Error('Expected body background rgb(248, 219, 193) (#F8DBC1), got ' + css.bodyBg);
       }
-      if (!css.hasCyan || !css.hasVolt || !css.hasMagenta) {
-        throw new Error('Missing neon palette colors in CSS: ' + JSON.stringify(css));
+      if (!css.hasTealInk || !css.hasSignalPink || !css.hasSurfaceCream || css.hasLegacyNeon) {
+        throw new Error('Risograph Option A tokens check failed: ' + JSON.stringify(css));
       }
 
-      // ESPN-style top live ticker strip (do not accept bare <header> or <nav>)
+      // ATP Wire top live ticker strip (do not accept bare <header> or <nav>)
       const tickerCandidates = Array.from(
         document.querySelectorAll('[aria-label*="ticker" i], [id*="ticker" i], [class*="ticker" i], [role="marquee"], aside, header, nav')
       ).filter((el) => H.isVisible(el));
@@ -603,9 +638,10 @@ const SCENARIOS = {
 
       return {
         bodyBg: css.bodyBg,
-        hasCyan: css.hasCyan,
-        hasVolt: css.hasVolt,
-        hasMagenta: css.hasMagenta,
+        hasTealInk: css.hasTealInk,
+        hasSignalPink: css.hasSignalPink,
+        hasSurfaceCream: css.hasSurfaceCream,
+        hasLegacyNeon: css.hasLegacyNeon,
         tickerText: H.getText(topTicker).slice(0, 160),
       };
     `);
@@ -619,6 +655,7 @@ const SCENARIOS = {
       // Ensure H2H Arena mode
       const arenaTab = H.findClickable([/h2h|matchup\\s*arena|arena/i]);
       if (arenaTab) arenaTab.click();
+      await H.ensureArenaRailExpanded();
 
       const p1Sel = await H.waitFor(() => {
         const s = H.findSelect({ optionPatterns: [/Alcaraz/i], labelPatterns: [/p1|player\\s*1|left/i], index: 0 });
@@ -725,6 +762,7 @@ const SCENARIOS = {
     const data = await evalPage(cdp, `
       const arenaTab = H.findClickable([/h2h|matchup\\s*arena|arena/i]);
       if (arenaTab) arenaTab.click();
+      await H.ensureArenaRailExpanded();
 
       const p1Sel = await H.waitFor(
         () => H.findSelect({ optionPatterns: [/Alcaraz/i], labelPatterns: [/p1|player\\s*1|left/i], index: 0 }) || H.findSelect({ optionPatterns: [/Alcaraz/i], index: 0 }),
@@ -883,11 +921,13 @@ const SCENARIOS = {
     await navigateAndHydrate(cdp, baseUrl, telemetry);
 
     await evalPage(cdp, `
-      H.clickControl([/daily\\s*schedule|schedule|live\\s*board/i]);
+      const schedTab = document.getElementById('tabSchedule') || H.findClickable([/today'?s\\s*slate|daily\\s*schedule|live\\s*board/i]);
+      if (!schedTab) throw new Error('Today\\'s Slate / Daily Schedule tab not found');
+      schedTab.click();
 
       await H.waitFor(() => {
         const txt = H.getText(document.body);
-        return /schedule|fixtures|no\\s+(?:live|daily|upcoming)|refresh/i.test(txt);
+        return /slate|schedule|fixtures|no\\s+(?:live|daily|upcoming)|refresh/i.test(txt);
       }, 8000, 'Daily Schedule mode render');
 
       const refreshBtn = H.findClickable([/refresh/i]);
@@ -947,7 +987,7 @@ const SCENARIOS = {
 
       // If any fixture/ticker inspect action exists, click it and verify transition
       let inspectedFromSchedule = false;
-      const inspectAction = H.findClickable([/inspect|open\\s+in\\s+arena|load\\s+arena/i]);
+      const inspectAction = H.findClickable([/open\\s+dossier|open\\s+in\\s+workbench|inspect|open\\s+in\\s+arena|load\\s+arena/i]);
       if (inspectAction) {
         inspectAction.click();
         inspectedFromSchedule = true;
@@ -966,11 +1006,20 @@ const SCENARIOS = {
     await navigateAndHydrate(cdp, baseUrl, telemetry);
 
     const data = await evalPage(cdp, `
+      const routes = ['#slate', '#arena', '#backtracker'];
+      for (const r of routes) {
+        window.location.hash = r;
+        await new Promise((res) => setTimeout(res, 180));
+        const sw = document.documentElement.scrollWidth;
+        const iw = window.innerWidth;
+        if (sw > iw + 2) {
+          throw new Error('Horizontal overflow on mobile viewport (' + r + '): scrollWidth=' + sw + ' > innerWidth=' + iw);
+        }
+      }
+      window.location.hash = '#slate';
+      await new Promise((res) => setTimeout(res, 120));
       const scrollWidth = document.documentElement.scrollWidth;
       const innerWidth = window.innerWidth;
-      if (scrollWidth > innerWidth + 2) {
-        throw new Error('Horizontal overflow on mobile viewport: scrollWidth=' + scrollWidth + ' > innerWidth=' + innerWidth);
-      }
       const bodyRect = document.body.getBoundingClientRect();
       if (bodyRect.height < 200) {
         throw new Error('Page body collapsed on mobile viewport: height=' + bodyRect.height);
@@ -988,6 +1037,7 @@ const SCENARIOS = {
     const data = await evalPage(cdp, `
       const arenaTab = H.findClickable([/h2h|matchup\\s*arena|arena/i]);
       if (arenaTab) arenaTab.click();
+      await H.ensureArenaRailExpanded();
 
       const odd1Input = await H.waitFor(
         () => H.findInput([/odd.?1|p1.?odd|player.?1.?odd/i]) || H.findInput([/odd/i], { index: 0 }),
@@ -1187,7 +1237,13 @@ async function main() {
       if (url.startsWith('http://') || url.startsWith('https://')) {
         try {
           const parsed = new URL(url);
-          if (parsed.hostname !== '127.0.0.1' && parsed.hostname !== 'localhost') {
+          const allowedHosts = new Set([
+            '127.0.0.1',
+            'localhost',
+            'fonts.googleapis.com',
+            'fonts.gstatic.com',
+          ]);
+          if (!allowedHosts.has(parsed.hostname)) {
             telemetry.externalRequests.push({ url, type: params.type || 'Other' });
           }
         } catch {

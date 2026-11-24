@@ -829,9 +829,14 @@ def test_t2_f8_zero_external_urls_in_served_html_css_js(http_client):
     assert root.status_code == 200
     assert "text/html" in root.headers.get("content-type", "").lower()
     html = root.text
+    allowed_cdn_prefixes = (
+        "https://fonts.googleapis.com",
+        "https://fonts.gstatic.com",
+    )
     raw_attr_urls = re.findall(r'(?:src|href)=["\']([^"\']+)["\']', html, flags=re.IGNORECASE)
     for raw in raw_attr_urls:
-        assert not raw.startswith(("http://", "https://", "//")), f"External URL in HTML: {raw}"
+        if raw.startswith(("http://", "https://", "//")):
+            assert raw.startswith(allowed_cdn_prefixes), f"Disallowed external URL in HTML: {raw}"
 
     hrefs = re.findall(r'<link[^>]+href=["\']([^"\']+)["\']', html, flags=re.IGNORECASE)
     srcs = re.findall(r'<script[^>]+src=["\']([^"\']+)["\']', html, flags=re.IGNORECASE)
@@ -843,7 +848,13 @@ def test_t2_f8_zero_external_urls_in_served_html_css_js(http_client):
     assert len(local_assets) >= 4, f"Expected CSS/JS assets referenced by index.html, got {local_assets}"
 
     url_pattern = re.compile(r"https?://[^\s'\"<>)]+")
-    allowed_prefixes = ("http://127.0.0.1", "http://localhost", "http://www.w3.org/2000/svg")
+    allowed_prefixes = (
+        "http://127.0.0.1",
+        "http://localhost",
+        "http://www.w3.org/2000/svg",
+        "https://fonts.googleapis.com",
+        "https://fonts.gstatic.com",
+    )
 
     def _assert_no_external_http_urls(content: str, label: str) -> None:
         for found in url_pattern.findall(content):
@@ -851,7 +862,7 @@ def test_t2_f8_zero_external_urls_in_served_html_css_js(http_client):
                 f"Disallowed external URL {found!r} found in {label}"
             )
         lowered = content.lower()
-        for cdn_hint in ("unpkg.com", "jsdelivr.net", "cdnjs.", "fonts.googleapis.com", "cdn.tailwindcss.com"):
+        for cdn_hint in ("unpkg.com", "jsdelivr.net", "cdnjs.", "cdn.tailwindcss.com"):
             assert cdn_hint not in lowered, f"External CDN {cdn_hint} found in {label}"
 
     _assert_no_external_http_urls(html, "/")

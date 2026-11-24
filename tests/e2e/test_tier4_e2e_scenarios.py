@@ -33,10 +33,11 @@ def test_scenario_1_ephemeral_port_boot_healthz_and_neon_arena() -> None:
         assert cdp_res["ok"] is True
         assert cdp_res["errors"] == []
         data = cdp_res["data"]
-        assert data["bodyBg"] == "rgb(6, 9, 19)"
-        assert data["hasCyan"] is True
-        assert data["hasVolt"] is True
-        assert data["hasMagenta"] is True
+        assert data["bodyBg"] == "rgb(248, 219, 193)"
+        assert data["hasTealInk"] is True
+        assert data["hasSignalPink"] is True
+        assert data["hasSurfaceCream"] is True
+        assert data["hasLegacyNeon"] is False
         assert isinstance(data["tickerText"], str) and len(data["tickerText"].strip()) > 5
 
         telemetry = cdp_res["telemetry"]

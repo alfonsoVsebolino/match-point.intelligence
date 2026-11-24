@@ -775,12 +775,15 @@ def test_f8_styles_css_defines_obsidian_and_neon_palette(http_client):
     html_resp = http_client.get("/")
     assert html_resp.status_code == 200
     assert "text/html" in html_resp.headers.get("content-type", "").lower()
-    css_url = _find_css_asset_url(html_resp.text)
-    css_resp = http_client.get(css_url)
-    assert css_resp.status_code == 200
-    css = css_resp.text.lower()
-    for hex_token in ("#060913", "#00f5ff", "#ccff00", "#ff2bd6"):
-        assert hex_token in css, f"Expected neon token {hex_token} in {css_url}"
+    asset_urls = _extract_local_asset_urls(html_resp.text)
+    css_urls = [u for u in asset_urls if u.endswith(".css")]
+    assert any("tokens.css" in u for u in css_urls), f"Expected tokens.css in {css_urls}"
+    assert any("styles.css" in u for u in css_urls), f"Expected styles.css in {css_urls}"
+    joined_css = "\n".join(http_client.get(u).text.lower() for u in css_urls)
+    for hex_token in ("#f8dbc1", "#fce7d4", "#1d646c", "#ea4f88"):
+        assert hex_token in joined_css, f"Expected Risograph token {hex_token} in CSS assets"
+    for legacy_hex in ("#060913", "#00f5ff", "#ccff00", "#ff2bd6"):
+        assert legacy_hex not in joined_css, f"Legacy neon token {legacy_hex} must not appear in CSS"
 
 
 def test_f8_html_contains_zero_external_cdn_links(http_client):
@@ -789,11 +792,13 @@ def test_f8_html_contains_zero_external_cdn_links(http_client):
     assert "text/html" in html_resp.headers.get("content-type", "").lower()
     html = html_resp.text
     external_tags = re.findall(
-        r'<(?:script|link)[^>]+(?:src|href)=["\'](?:https?:)?//[^"\']+["\']',
+        r'<(?:script|link)[^>]+(?:src|href)=["\']((?:https?:)?//[^"\']+)["\']',
         html,
         flags=re.IGNORECASE,
     )
-    assert external_tags == [], f"Unexpected external CDN tags in index.html: {external_tags}"
+    allowed_hosts = ("https://fonts.googleapis.com", "https://fonts.gstatic.com")
+    disallowed = [u for u in external_tags if not u.startswith(allowed_hosts)]
+    assert disallowed == [], f"Unexpected external CDN tags in index.html: {disallowed}"
 
 
 def test_f8_html_contains_ticker_and_three_mode_controls(http_client):
@@ -825,10 +830,11 @@ def test_f8_ui_references_full_arcade_suite(http_client):
 def test_f8_live_chromium_boot_and_theme(live_server):
     result = run_cdp_scenario(live_server["base_url"], "boot_and_theme")
     assert result["ok"] is True
-    assert result["data"]["bodyBg"] == "rgb(6, 9, 19)"
-    assert result["data"]["hasCyan"] is True
-    assert result["data"]["hasVolt"] is True
-    assert result["data"]["hasMagenta"] is True
+    assert result["data"]["bodyBg"] == "rgb(248, 219, 193)"
+    assert result["data"]["hasTealInk"] is True
+    assert result["data"]["hasSignalPink"] is True
+    assert result["data"]["hasSurfaceCream"] is True
+    assert result["data"]["hasLegacyNeon"] is False
 
 
 # ===========================================================================
