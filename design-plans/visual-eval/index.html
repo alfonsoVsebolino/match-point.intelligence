@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>baseline.ml — Risograph UI Visual Evaluation Hub</title>
+  <link rel="stylesheet" href="eval-risograph.css">
+  <style>
+    .hub-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 20px;
+    }
+    @media (max-width: 960px) {
+      .hub-grid { grid-template-columns: 1fr; }
+    }
+    .option-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 14px;
+    }
+    .option-card ul {
+      margin: 0;
+      padding-left: 18px;
+      font-size: 13px;
+      color: var(--ink-deep);
+    }
+    .option-card li + li { margin-top: 6px; }
+    .swatch-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .swatch {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border: 1.5px solid var(--ink-primary);
+      border-radius: 6px;
+      background: var(--bg-surface);
+      font-size: 12px;
+    }
+    .swatch-dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 3px;
+      border: 1px solid var(--ink-primary);
+    }
+  </style>
+</head>
+<body>
+  <svg class="paper-grain-overlay" aria-hidden="true">
+    <filter id="risoGrain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch" />
+    </filter>
+    <rect width="100%" height="100%" filter="url(#risoGrain)" />
+  </svg>
+
+  <div class="eval-ribbon">
+    <strong>VISUAL EVALUATION SANDBOX &bull; design-plans/visual-eval/</strong>
+    <nav class="eval-nav">
+      <a class="eval-link is-current" href="index.html">0. Overview</a>
+      <a class="eval-link" href="unified-dossier.html#slate">Unified Synthesis</a>
+      <a class="eval-link" href="option-1-editorial.html">Option 1: Editorial Broadsheet</a>
+      <a class="eval-link" href="option-2-workbench.html">Option 2: Command Workbench</a>
+      <a class="eval-link" href="option-3-slate-first.html">Option 3: Slate-First Zine</a>
+    </nav>
+  </div>
+
+  <main class="page-shell">
+    <header class="riso-header">
+      <div class="wordmark-lockup">
+        <h1 class="wordmark">baseline<span class="focal-dot">.</span>ml</h1>
+        <span class="wordmark-tag">Risograph Option A Visual Evaluation</span>
+      </div>
+      <div class="status-strip">
+        <span>Tokens: <strong class="metric-tabular">web/tokens.css</strong></span>
+        <span>Rule: <strong class="metric-tabular">.agents/rules/design-systems.md</strong></span>
+      </div>
+    </header>
+
+    <section class="hero-anchor-band">
+      <h2 class="hero-display-title">Evaluate calmer layouts<span class="focal-accent">.</span></h2>
+      <p class="hero-lead">
+        Current <code>web/index.html</code> + <code>web/styles.css</code> runs an unwired Obsidian Dark-Neon theme and auto-stacks 9 dense telemetry sections above and below the fold. Below are three static Risograph Option A prototypes illustrating different density-reduction strategies prior to codebase-wide changes.
+      </p>
+
+      <div class="swatch-row" aria-label="60/30/10 Risograph Token Budget">
+        <div class="swatch"><span class="swatch-dot" style="background:var(--bg-canvas)"></span><span>60% Cream Canvas <code class="metric-tabular">#F8DBC1</code></span></div>
+        <div class="swatch"><span class="swatch-dot" style="background:var(--bg-surface)"></span><span>Surface <code class="metric-tabular">#FCE7D4</code></span></div>
+        <div class="swatch"><span class="swatch-dot" style="background:var(--ink-primary)"></span><span>30% Riso Teal <code class="metric-tabular">#1D646C</code></span></div>
+        <div class="swatch"><span class="swatch-dot" style="background:var(--accent-signal)"></span><span>10% Signal Pink <code class="metric-tabular">#EA4F88</code></span></div>
+        <div class="swatch"><span class="swatch-dot" style="background:var(--state-fade)"></span><span>Fade <code class="metric-tabular">#B54434</code></span></div>
+      </div>
+    </section>
+
+    <!-- Diamond-Mesh Tennis Net Divider -->
+    <svg class="net-divider" height="22" viewBox="0 0 1132 22" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <pattern id="tennisNetPattern" width="16" height="16" patternUnits="userSpaceOnUse">
+          <path d="M 0 8 L 8 0 L 16 8 L 8 16 Z" fill="none" stroke="#1D646C" stroke-width="0.9" stroke-opacity="0.45" />
+        </pattern>
+      </defs>
+      <line x1="0" y1="3" x2="1132" y2="3" stroke="#1D646C" stroke-width="2" />
+      <rect x="0" y="4" width="1132" height="14" fill="url(#tennisNetPattern)" />
+      <line x1="0" y1="19" x2="1132" y2="19" stroke="#1D646C" stroke-width="1" stroke-opacity="0.55" />
+      <rect x="560" y="1" width="12" height="20" rx="2" fill="#EA4F88" stroke="#1D646C" stroke-width="1.2" />
+    </svg>
+
+    <section>
+      <h2 class="section-display-anchor">Unified synthesis &amp; layout options<span class="focal-accent">.</span></h2>
+      <p class="meta-caption">Each static page uses real Risograph tokens, single-favored-pink probability bars, tabular numbers, and interactive tabs/drawers.</p>
+
+      <article class="riso-card print-plate" style="margin-top:18px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:18px;">
+        <div style="max-width:72ch;">
+          <span class="badge badge-ev">FEATURED SYNTHESIS &bull; PRODUCTION BLUEPRINT</span>
+          <h3 style="margin:10px 0 6px; font-size:1.25rem; color:var(--ink-deep);">Unified Dossier Synthesis (Options 1 + 2 + 3)</h3>
+          <p class="meta-caption" style="font-size:13px; color:var(--ink-deep);">
+            Combines Option 3's <strong>#slate</strong> default landing (with live vs Deterministic Featured Fallback toggle), Option 1's <strong>#match/&lt;id&gt;</strong> editorial dossier with an always-visible <strong>5 Key Delta strip</strong>, Option 2's <strong>#arena</strong> &amp; <strong>#backtracker</strong> sticky rail workbenches, interactive SVG 6-axis scouting radar, and filterable 31-feature matrix.
+          </p>
+        </div>
+        <a class="btn-primary-signal" style="text-decoration:none; white-space:nowrap;" href="unified-dossier.html#slate">Launch Unified Dossier &rarr;</a>
+      </article>
+
+      <div class="hub-grid">
+        <article class="riso-card print-plate option-card">
+          <div>
+            <span class="badge badge-ev">OPTION 1 &bull; RECOMMENDED</span>
+            <h3 style="margin:10px 0 6px; color:var(--ink-deep);">Editorial Broadsheet</h3>
+            <p class="meta-caption">Progressive Disclosure Dossier</p>
+            <ul style="margin-top:12px;">
+              <li>Replaces 9 stacked bands with <strong>1 focal Verdict Print Plate</strong> + <strong>3 clean detail tabs</strong>.</li>
+              <li>Removes the noisy top ticker &amp; redundant 5-tile summary duplication.</li>
+              <li>Preserves 100% of Scouting Radar, TreeSHAP, and 31-Feature Matrix on demand.</li>
+            </ul>
+          </div>
+          <a class="btn-primary-signal" style="text-align:center; text-decoration:none;" href="option-1-editorial.html">Inspect Option 1 &rarr;</a>
+        </article>
+
+        <article class="riso-card option-card">
+          <div>
+            <span class="badge badge-neutral">OPTION 2</span>
+            <h3 style="margin:10px 0 6px; color:var(--ink-deep);">Two-Column Workbench</h3>
+            <p class="meta-caption">Sticky Control Rail + Scannable Canvas</p>
+            <ul style="margin-top:12px;">
+              <li>Moves player pickers, surface, series, and odds into a compact <strong>300px left rail</strong>.</li>
+              <li>Right column stays calm: Verdict Print Plate + collapsible diagnostic accordions.</li>
+              <li>Fastest for users running rapid "what-if" matchups side by side.</li>
+            </ul>
+          </div>
+          <a class="btn-secondary-riso" style="text-align:center; text-decoration:none;" href="option-2-workbench.html">Inspect Option 2 &rarr;</a>
+        </article>
+
+        <article class="riso-card option-card">
+          <div>
+            <span class="badge badge-hard">OPTION 3</span>
+            <h3 style="margin:10px 0 6px; color:var(--ink-deep);">Slate-First Print Zine</h3>
+            <p class="meta-caption">Daily Schedule Default + Match Dossier</p>
+            <ul style="margin-top:12px;">
+              <li>Lands on <strong>Today's court slate</strong> (4 KPIs + clean 2-col Print Plate cards) instead of dumping full TreeSHAP on first paint.</li>
+              <li>Clicking a fixture transitions smoothly into a focused H2H Dossier.</li>
+              <li>Best if live daily slates are the primary entry workflow.</li>
+            </ul>
+          </div>
+          <a class="btn-secondary-riso" style="text-align:center; text-decoration:none;" href="option-3-slate-first.html">Inspect Option 3 &rarr;</a>
+        </article>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

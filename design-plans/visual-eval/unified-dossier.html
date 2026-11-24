@@ -1,0 +1,2272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unified Dossier Synthesis — baseline.ml</title>
+  <link rel="stylesheet" href="eval-risograph.css">
+  <style>
+    /* Unified Dossier Synthesis — Page-Specific Layout Styles
+       Strict 60% Cream Paper / 30% Riso Teal / <=10% Fluorescent Pink */
+
+    .kpi-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .kpi-box {
+      background: var(--bg-surface);
+      border: 1.5px solid var(--ink-primary);
+      border-radius: 8px;
+      box-shadow: 3px 3px 0px var(--ink-primary);
+      padding: 12px 14px;
+    }
+    .kpi-box span {
+      display: block;
+      font-size: 12px;
+      color: var(--ink-muted);
+      font-weight: 600;
+    }
+    .kpi-box strong {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
+      font-size: 22px;
+      color: var(--ink-deep);
+    }
+
+    .filter-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .toolbar-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+    .toggle-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--bg-surface);
+      border: 1.5px solid var(--ink-primary);
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink-deep);
+      cursor: pointer;
+      user-select: none;
+    }
+    .toggle-pill input {
+      accent-color: var(--accent-signal);
+      margin: 0;
+      cursor: pointer;
+    }
+    .toggle-pill.is-on {
+      background: var(--accent-wash);
+      border-color: var(--accent-signal);
+    }
+
+    .fallback-banner {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: var(--bg-recessed);
+      border: 1.5px solid var(--ink-primary);
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 18px;
+    }
+
+    .slate-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+    .fixture-card {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      cursor: pointer;
+      transition: transform 0.12s ease;
+      text-align: left;
+    }
+    .fixture-card:hover {
+      transform: translate(-1px, -1px);
+    }
+    .fixture-card:focus-visible {
+      outline: 2px solid var(--accent-signal);
+      outline-offset: 2px;
+    }
+    .fixture-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    /* Breadcrumb / Action Bar inside #match/<id> */
+    .dossier-topbar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    /* Workbench Two-Column Layout (#arena & #backtracker) */
+    .workbench-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .workbench-grid {
+      display: grid;
+      grid-template-columns: 310px 1fr;
+      gap: 22px;
+      align-items: start;
+      margin-top: 14px;
+    }
+    .workbench-grid.is-rail-collapsed {
+      grid-template-columns: 1fr;
+    }
+    .workbench-grid.is-rail-collapsed .rail-stack {
+      display: none;
+    }
+    .rail-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      position: sticky;
+      top: 16px;
+    }
+    .canvas-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      min-width: 0;
+    }
+    .field-lbl {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink-muted);
+      margin-bottom: 4px;
+    }
+    .preset-btn {
+      width: 100%;
+      text-align: left;
+      background: var(--bg-recessed);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 8px 10px;
+      cursor: pointer;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      color: var(--ink-deep);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .preset-btn:hover {
+      border-color: var(--ink-primary);
+    }
+    .preset-btn.is-selected {
+      border-color: var(--accent-signal);
+      background: var(--accent-wash);
+    }
+
+    /* Historical Backtracker Verdict Banner */
+    .historical-banner {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      border-radius: 10px;
+      border: 1.5px solid var(--ink-primary);
+      box-shadow: var(--shadow-riso-card);
+      background: var(--bg-surface);
+    }
+    .historical-banner.is-accurate {
+      border-left: 6px solid var(--ink-primary);
+    }
+    .historical-banner.is-upset {
+      border-left: 6px solid var(--state-fade);
+    }
+
+    /* Unified Result Dossier Component */
+    .verdict-meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .badge-divergent {
+      color: var(--accent-text);
+      background: var(--accent-wash);
+      border-color: var(--accent-signal);
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+    }
+    .badge-consensus {
+      color: var(--ink-primary);
+      background: var(--ink-wash);
+      border-color: var(--ink-primary);
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+    }
+    .verdict-grid {
+      display: grid;
+      grid-template-columns: 1.35fr 1fr;
+      gap: 20px;
+      align-items: center;
+    }
+    .verdict-players {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .player-block-name {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--ink-deep);
+    }
+    .player-block-prob {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .prob-fav { color: var(--accent-text); }
+    .prob-dog { color: var(--ink-muted); }
+
+    .kelly-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .kelly-cell {
+      background: var(--bg-recessed);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+    .kelly-cell span {
+      display: block;
+      font-size: 11px;
+      color: var(--ink-muted);
+    }
+    .kelly-cell strong {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
+      font-size: 14px;
+      color: var(--ink-deep);
+    }
+
+    /* Always-Visible 5 Key Delta Strip */
+    .key-delta-strip {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1.5px solid var(--border-subtle);
+    }
+    .delta-pill {
+      background: var(--bg-recessed);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+    .delta-pill span {
+      display: block;
+      font-size: 11px;
+      color: var(--ink-muted);
+      font-weight: 600;
+    }
+    .delta-pill strong {
+      display: block;
+      margin-top: 2px;
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
+      font-size: 13px;
+      color: var(--ink-deep);
+    }
+
+    .court-schematic-box {
+      border: 1.5px solid var(--ink-primary);
+      border-radius: 8px;
+      background: var(--bg-surface);
+      padding: 12px 14px;
+      text-align: center;
+    }
+
+    /* TreeSHAP Diverging Bars */
+    .shap-item {
+      display: grid;
+      grid-template-columns: 205px 1fr 78px;
+      gap: 12px;
+      align-items: center;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .shap-item:last-child { border-bottom: none; }
+    .shap-track {
+      position: relative;
+      height: 11px;
+      background: var(--bg-recessed);
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+    }
+    .shap-mid {
+      position: absolute;
+      left: 50%;
+      top: -3px;
+      bottom: -3px;
+      width: 1.5px;
+      background: var(--ink-primary);
+    }
+    .shap-bar {
+      position: absolute;
+      top: 1px;
+      bottom: 1px;
+      border-radius: 999px;
+    }
+    .shap-bar.p1 { right: 50%; background: var(--accent-signal); }
+    .shap-bar.p2 { left: 50%; background: var(--ink-muted); }
+
+    /* Scouting Cards + Radar Duel */
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .stat-row-5 {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 6px;
+      margin-top: 12px;
+    }
+    .stat-mini {
+      background: var(--bg-recessed);
+      border-radius: 6px;
+      padding: 7px 5px;
+      text-align: center;
+    }
+    .stat-mini span { display: block; font-size: 11px; color: var(--ink-muted); }
+    .stat-mini strong {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      font-size: 13px;
+      color: var(--ink-deep);
+    }
+    .radar-layout {
+      display: grid;
+      grid-template-columns: 1.25fr 1fr;
+      gap: 16px;
+      align-items: center;
+      margin-top: 16px;
+    }
+    .radar-axis-hotspot {
+      cursor: pointer;
+      outline: none;
+    }
+    .radar-axis-hotspot:hover text,
+    .radar-axis-hotspot.is-active text {
+      fill: var(--accent-text);
+      font-weight: 700;
+    }
+    .radar-axis-hotspot.is-active circle.axis-dot {
+      stroke: var(--ink-primary);
+      stroke-width: 2;
+      r: 5.5;
+    }
+
+    /* 31-Feature Matrix */
+    .cat-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+    .cat-pill {
+      appearance: none;
+      background: var(--bg-recessed);
+      color: var(--ink-primary);
+      border: 1px solid var(--ink-primary);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .cat-pill.is-active {
+      background: var(--accent-signal);
+      color: var(--bg-surface);
+      border-color: var(--ink-primary);
+    }
+    .matrix-scroll {
+      overflow-x: auto;
+    }
+
+    /* Production Readiness Footer */
+    .riso-footer {
+      margin-top: 40px;
+      padding-top: 16px;
+      border-top: 1.5px solid var(--border-subtle);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 12px;
+      color: var(--ink-muted);
+    }
+
+    @media (max-width: 960px) {
+      .workbench-grid, .verdict-grid, .radar-layout { grid-template-columns: 1fr; }
+      .rail-stack { position: static; }
+      .key-delta-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 820px) {
+      .kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .slate-grid, .two-col, .kelly-strip { grid-template-columns: 1fr; }
+      .shap-item { grid-template-columns: 1fr; gap: 6px; }
+    }
+  </style>
+</head>
+<body>
+  <svg class="paper-grain-overlay" aria-hidden="true">
+    <filter id="risoGrainUnified">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch" />
+    </filter>
+    <rect width="100%" height="100%" filter="url(#risoGrainUnified)" />
+  </svg>
+
+  <div class="eval-ribbon">
+    <strong>UNIFIED DOSSIER SYNTHESIS &bull; Options 1 + 2 + 3 + Audit Resolutions</strong>
+    <nav class="eval-nav">
+      <a class="eval-link" href="index.html">0. Overview</a>
+      <a class="eval-link is-current" href="unified-dossier.html#slate">Unified Synthesis</a>
+      <a class="eval-link" href="option-1-editorial.html">Option 1: Editorial</a>
+      <a class="eval-link" href="option-2-workbench.html">Option 2: Workbench</a>
+      <a class="eval-link" href="option-3-slate-first.html">Option 3: Slate-First</a>
+    </nav>
+  </div>
+
+  <main class="page-shell">
+    <!-- Clean Single-Row Masthead -->
+    <header class="riso-header">
+      <div class="wordmark-lockup">
+        <span class="wordmark">baseline<span class="focal-dot">.</span>ml</span>
+        <span class="wordmark-tag">MatchPoint Intelligence</span>
+      </div>
+      <nav class="mode-pills" aria-label="Platform Modes">
+        <button class="mode-pill" type="button" data-route="slate">Today's Slate <span id="navSlateCount" class="metric-tabular">(4)</span></button>
+        <button class="mode-pill" type="button" data-route="arena">H2H Arena</button>
+        <button class="mode-pill" type="button" data-route="backtracker">Backtracker</button>
+      </nav>
+      <div class="status-strip">
+        <span>Synced <strong class="metric-tabular">2026-11-24</strong></span>
+        <span>&bull;</span>
+        <span>Pool: <strong class="metric-tabular">168 Active</strong></span>
+      </div>
+    </header>
+
+    <!-- ================================================================
+         VIEW 1: #slate — Option 3 Default Landing
+         ================================================================ -->
+    <section id="view-slate" class="is-hidden" aria-label="Today's Court Slate">
+      <section class="hero-anchor-band" style="padding-bottom:22px;">
+        <h1 class="hero-display-title">Today's court slate<span class="focal-accent">.</span></h1>
+        <p class="hero-lead">
+          Scannable Print Plate fixtures first — filter by series or value edge, or click any matchup to open its unified TreeSHAP &amp; Scouting dossier.
+        </p>
+      </section>
+
+      <section class="kpi-strip" aria-label="Slate Summary">
+        <div class="kpi-box"><span>Published Fixtures</span><strong id="kpiFixtures">4</strong></div>
+        <div class="kpi-box"><span>Live on Court</span><strong id="kpiLive">1</strong></div>
+        <div class="kpi-box"><span>Value Edges (&ge;3%)</span><strong id="kpiEdges" class="inline-pink">3</strong></div>
+        <div class="kpi-box"><span>Champion AUC / LL</span><strong>0.717 / 0.615</strong></div>
+      </section>
+
+      <div class="filter-toolbar">
+        <div class="mode-pills" id="seriesFilterPills" role="group" aria-label="Tournament Series Filter">
+          <button class="mode-pill is-active" type="button" data-series="ALL">All Series</button>
+          <button class="mode-pill" type="button" data-series="Grand Slam">Grand Slam</button>
+          <button class="mode-pill" type="button" data-series="Masters 1000">Masters 1000</button>
+          <button class="mode-pill" type="button" data-series="Masters Cup">Masters Cup</button>
+          <button class="mode-pill" type="button" data-series="ATP500">ATP500</button>
+        </div>
+
+        <div class="toolbar-actions">
+          <label class="toggle-pill" id="valueEdgeToggleLabel">
+            <input type="checkbox" id="valueEdgeToggle">
+            <span>Value Edges Only</span>
+          </label>
+          <label class="toggle-pill" id="fallbackToggleLabel">
+            <input type="checkbox" id="fallbackToggle">
+            <span>Simulate Empty Feed (Fallback Demo)</span>
+          </label>
+        </div>
+      </div>
+
+      <div id="fallbackBanner" class="fallback-banner is-hidden" role="status">
+        <div>
+          <strong style="color:var(--ink-deep);">Live ESPN Feed Empty — Deterministic Featured Fallback Slate Active</strong>
+          <div class="meta-caption">Zero-dead-screen resolution: between-tournament gaps deterministically serve curated Tour Spotlight &amp; Legends matchups with full model telemetry.</div>
+        </div>
+        <span class="badge badge-neutral metric-tabular">FALLBACK_DETERMINISTIC_V2</span>
+      </div>
+
+      <section id="slateGrid" class="slate-grid" aria-label="Fixture Cards"></section>
+    </section>
+
+    <!-- ================================================================
+         VIEW 2: #match/<id> — Option 1 Editorial Dossier
+         ================================================================ -->
+    <section id="view-match" class="is-hidden" aria-label="Match Editorial Dossier">
+      <div class="hero-anchor-band" style="padding-bottom:14px;">
+        <div class="dossier-topbar">
+          <button class="btn-secondary-riso" type="button" id="btnBackToSlate">&larr; Back to Today's Slate</button>
+          <button class="btn-primary-signal" type="button" id="btnOpenInWorkbench">Open in Workbench &rarr;</button>
+        </div>
+        <h1 class="hero-display-title" id="matchHeroTitle">Sharp court edge<span class="focal-accent">.</span></h1>
+        <p class="hero-lead" id="matchHeroSubtitle">Symmetrized LightGBM vs Logistic Regression inference with Power-Method de-vigging and 5-key-delta telemetry.</p>
+      </div>
+
+      <div id="matchDossierMount"></div>
+    </section>
+
+    <!-- ================================================================
+         VIEW 3A: #arena — Option 2 Sticky Rail + Unified Dossier
+         ================================================================ -->
+    <section id="view-arena" class="is-hidden" aria-label="Custom H2H Arena Workbench">
+      <section class="hero-anchor-band" style="padding-bottom:6px;">
+        <h1 class="hero-display-title">H2H Arena<span class="focal-accent">.</span></h1>
+        <p class="hero-lead">Rapid what-if matchup workbench — adjust players, era pool, surface, series, or decimal odds on the left rail to recompute the Unified Dossier.</p>
+      </section>
+
+      <div class="workbench-toolbar">
+        <button class="btn-secondary-riso" id="arenaRailToggleBtn" type="button" aria-expanded="false" aria-controls="arenaRail">
+          &#9776; Show Player &amp; Matchup Controls
+        </button>
+        <span class="meta-caption" id="arenaCollapsedSummary"></span>
+      </div>
+
+      <div class="workbench-grid is-rail-collapsed" id="arenaWorkbenchGrid">
+        <aside class="rail-stack" id="arenaRail" aria-label="Arena Controls">
+          <section class="riso-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+              <h2 class="card-title-sm">Matchup Parameters</h2>
+              <button class="btn-secondary-riso" id="arenaSwapBtn" type="button" style="padding:4px 9px;" title="Swap Players">&#8644; Swap</button>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              <label class="toggle-pill" id="legendsToggleLabel" style="width:100%; justify-content:space-between;">
+                <span>All-Time Legends (2000–2026)</span>
+                <input type="checkbox" id="arenaLegendsToggle" checked>
+              </label>
+
+              <div>
+                <label class="field-lbl" for="arenaP1">Player 1</label>
+                <select id="arenaP1" class="riso-select"></select>
+              </div>
+              <div>
+                <label class="field-lbl" for="arenaP2">Player 2</label>
+                <select id="arenaP2" class="riso-select"></select>
+              </div>
+
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <div>
+                  <label class="field-lbl" for="arenaSurf">Surface</label>
+                  <select id="arenaSurf" class="riso-select">
+                    <option value="Hard">Hard</option>
+                    <option value="Clay">Clay</option>
+                    <option value="Grass">Grass</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="field-lbl" for="arenaSeries">Series</label>
+                  <select id="arenaSeries" class="riso-select">
+                    <option value="Grand Slam">Grand Slam</option>
+                    <option value="Masters 1000">Masters 1000</option>
+                    <option value="Masters Cup">Masters Cup</option>
+                    <option value="ATP500">ATP500</option>
+                    <option value="ATP250">ATP250</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <div>
+                  <label class="field-lbl" for="arenaO1">P1 Decimal Odds</label>
+                  <input id="arenaO1" class="riso-input metric-tabular" type="number" step="0.01" min="1.01" placeholder="Optional">
+                </div>
+                <div>
+                  <label class="field-lbl" for="arenaO2">P2 Decimal Odds</label>
+                  <input id="arenaO2" class="riso-input metric-tabular" type="number" step="0.01" min="1.01" placeholder="Optional">
+                </div>
+              </div>
+
+              <button class="btn-primary-signal" id="arenaAnalyzeBtn" type="button" style="width:100%; margin-top:4px;">Analyze Matchup</button>
+            </div>
+          </section>
+
+          <section class="riso-card">
+            <h2 class="card-title-sm" style="margin-bottom:8px;">Featured Matchup Presets</h2>
+            <div id="arenaPresets" style="display:flex; flex-direction:column; gap:6px;"></div>
+          </section>
+        </aside>
+
+        <div class="canvas-stack" id="arenaDossierMount"></div>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         VIEW 3B: #backtracker — Option 2 Historical Backtracker Workbench
+         ================================================================ -->
+    <section id="view-backtracker" class="is-hidden" aria-label="Historical Backtracker Workbench">
+      <section class="hero-anchor-band" style="padding-bottom:6px;">
+        <h1 class="hero-display-title">Historical backtracker<span class="focal-accent">.</span></h1>
+        <p class="hero-lead">Audit out-of-sample predictions across chronological Validation/Test splits and Legends Archive classics with zero look-ahead leakage.</p>
+      </section>
+
+      <div class="workbench-toolbar">
+        <button class="btn-secondary-riso" id="btRailToggleBtn" type="button" aria-expanded="true" aria-controls="btRail">
+          &times; Hide Archive Selectors
+        </button>
+        <span class="meta-caption" id="btCollapsedSummary"></span>
+      </div>
+
+      <div class="workbench-grid" id="btWorkbenchGrid">
+        <aside class="rail-stack" id="btRail" aria-label="Backtracker Controls">
+          <section class="riso-card">
+            <h2 class="card-title-sm" style="margin-bottom:12px;">Archive Selectors</h2>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              <div>
+                <label class="field-lbl" for="btSplit">Dataset Split</label>
+                <select id="btSplit" class="riso-select"></select>
+              </div>
+              <div>
+                <label class="field-lbl" for="btTournament">Tournament</label>
+                <select id="btTournament" class="riso-select"></select>
+              </div>
+              <div>
+                <label class="field-lbl" for="btMatch">Matchup</label>
+                <select id="btMatch" class="riso-select"></select>
+              </div>
+              <button class="btn-primary-signal" id="btInspectBtn" type="button" style="width:100%; margin-top:4px;">Inspect Match</button>
+            </div>
+          </section>
+
+          <section class="riso-card">
+            <h2 class="card-title-sm" style="margin-bottom:6px;">Split Telemetry</h2>
+            <div id="btSplitMeta" class="meta-caption"></div>
+          </section>
+        </aside>
+
+        <div class="canvas-stack">
+          <div id="btHistoricalBanner"></div>
+          <div id="btDossierMount"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Production Readiness Footer Note -->
+    <footer class="riso-footer">
+      <span>
+        <strong>Static Sandbox Note:</strong> <code>eval-risograph.css</code> loads Google Fonts for local evaluation only; production <code>web/</code> self-hosts <code>.woff2</code> under <code>/static/fonts/</code> to preserve zero-CDN E2E guarantees.
+      </span>
+      <span class="metric-tabular">Risograph Option A &bull; 60 / 30 / 10 Budget</span>
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      "use strict";
+
+      /* =====================================================================
+         1. Canonical 31-Feature Metadata (mirrors src/atp_engine.py)
+         ===================================================================== */
+      const FEATURE_META = [
+        { name: "rank_diff", label: "ATP Rank Δ", category: "Ranking", fmt: "int" },
+        { name: "pts_diff", label: "ATP Ranking Points Δ", category: "Ranking", fmt: "int" },
+        { name: "short_winrate_diff", label: "10-Match Win Rate Δ", category: "Short Form (10M)", fmt: "dec4" },
+        { name: "short_tb_winrate_diff", label: "10-Match Tiebreak Win Rate Δ", category: "Short Form (10M)", fmt: "dec4" },
+        { name: "short_comeback_rate_diff", label: "10-Match Comeback Rate Δ", category: "Short Form (10M)", fmt: "dec4" },
+        { name: "short_bb_rate_diff", label: "10-Match Bagel/Breadstick Rate Δ", category: "Short Form (10M)", fmt: "dec4" },
+        { name: "short_avg_games_per_set_diff", label: "10-Match Avg Games/Set Δ", category: "Short Form (10M)", fmt: "dec3" },
+        { name: "med_winrate_diff", label: "365d Win Rate Δ", category: "Med Form (365d)", fmt: "dec4" },
+        { name: "med_tb_winrate_diff", label: "365d Tiebreak Win Rate Δ", category: "Med Form (365d)", fmt: "dec4" },
+        { name: "med_comeback_rate_diff", label: "365d Comeback Rate Δ", category: "Med Form (365d)", fmt: "dec4" },
+        { name: "med_bb_rate_diff", label: "365d Bagel/Breadstick Rate Δ", category: "Med Form (365d)", fmt: "dec4" },
+        { name: "med_avg_games_per_set_diff", label: "365d Avg Games/Set Δ", category: "Med Form (365d)", fmt: "dec3" },
+        { name: "med_ret_freq_diff", label: "365d Retirement Rate Δ", category: "Med Form (365d)", fmt: "dec4" },
+        { name: "career_winrate_diff", label: "Career Win Rate Δ", category: "Career", fmt: "dec4" },
+        { name: "career_tb_winrate_diff", label: "Career Tiebreak Win Rate Δ", category: "Career", fmt: "dec4" },
+        { name: "career_comeback_rate_diff", label: "Career Comeback Rate Δ", category: "Career", fmt: "dec4" },
+        { name: "career_bb_rate_diff", label: "Career Bagel/Breadstick Rate Δ", category: "Career", fmt: "dec4" },
+        { name: "career_avg_games_per_set_diff", label: "Career Avg Games/Set Δ", category: "Career", fmt: "dec3" },
+        { name: "career_ret_freq_diff", label: "Career Retirement Rate Δ", category: "Career", fmt: "dec4" },
+        { name: "surface_winrate_diff", label: "Surface Win Rate Δ", category: "Context & Fatigue", fmt: "dec4" },
+        { name: "days_since_last_diff", label: "Rest Days Δ", category: "Context & Fatigue", fmt: "int" },
+        { name: "matches_14d_diff", label: "14-Day Match Load Δ", category: "Context & Fatigue", fmt: "int" },
+        { name: "matches_30d_diff", label: "30-Day Match Load Δ", category: "Context & Fatigue", fmt: "int" },
+        { name: "form_divergence_diff", label: "Form Divergence (Short - Career) Δ", category: "Context & Fatigue", fmt: "dec4" },
+        { name: "h2h_winrate", label: "H2H Overall Win Rate", category: "Head-to-Head", fmt: "dec4" },
+        { name: "h2h_match_count", label: "H2H Total Matches", category: "Head-to-Head", fmt: "int_abs" },
+        { name: "h2h_surface_winrate", label: "H2H Surface Win Rate", category: "Head-to-Head", fmt: "dec4" },
+        { name: "h2h_surface_count", label: "H2H Surface Matches", category: "Head-to-Head", fmt: "int_abs" },
+        { name: "surface_encoded", label: "Court Surface", category: "Match Context", fmt: "int_abs" },
+        { name: "series_encoded", label: "Tournament Series", category: "Match Context", fmt: "int_abs" },
+        { name: "is_grand_slam", label: "Grand Slam Format (Bo5)", category: "Match Context", fmt: "int_abs" }
+      ];
+
+      const RADAR_AXES = [
+        { key: "short_form", label: "Short Form" },
+        { key: "med_form", label: "Med Form" },
+        { key: "surface_mastery", label: "Surface Mastery" },
+        { key: "rank_power", label: "Rank Power" },
+        { key: "clutch_tb", label: "Clutch / TB" },
+        { key: "stamina_freshness", label: "Stamina / Freshness" }
+      ];
+
+      /* =====================================================================
+         2. Player Pool (Active + All-Time Legends 2000–2026)
+         ===================================================================== */
+      const PLAYERS = {
+        "Alcaraz C.": {
+          rank: 1, pts: 11450, ovr: 94, legend: false,
+          surfWr: { Hard: 0.824, Clay: 0.848, Grass: 0.835 },
+          shortWr: 0.90, medWr: 0.84, careerWr: 0.801,
+          tbWr: 0.65, comeback: 0.34, bb: 0.21, gps: 9.45, ret: 0.008,
+          rest: 6, m14: 4, m30: 7,
+          radar: { short_form: 92, med_form: 88, surface_mastery: 86, rank_power: 98, clutch_tb: 84, stamina_freshness: 76 }
+        },
+        "Sinner J.": {
+          rank: 2, pts: 10920, ovr: 93, legend: false,
+          surfWr: { Hard: 0.858, Clay: 0.765, Grass: 0.772 },
+          shortWr: 0.80, medWr: 0.86, careerWr: 0.785,
+          tbWr: 0.67, comeback: 0.31, bb: 0.24, gps: 9.28, ret: 0.012,
+          rest: 8, m14: 2, m30: 5,
+          radar: { short_form: 85, med_form: 91, surface_mastery: 90, rank_power: 96, clutch_tb: 87, stamina_freshness: 86 }
+        },
+        "Zverev A.": {
+          rank: 3, pts: 7915, ovr: 89, legend: false,
+          surfWr: { Hard: 0.742, Clay: 0.755, Grass: 0.680 },
+          shortWr: 0.70, medWr: 0.75, careerWr: 0.712,
+          tbWr: 0.59, comeback: 0.27, bb: 0.16, gps: 9.85, ret: 0.014,
+          rest: 4, m14: 5, m30: 9,
+          radar: { short_form: 76, med_form: 80, surface_mastery: 78, rank_power: 91, clutch_tb: 74, stamina_freshness: 72 }
+        },
+        "Djokovic N.": {
+          rank: 4, pts: 6210, ovr: 91, legend: true,
+          surfWr: { Hard: 0.844, Clay: 0.806, Grass: 0.858 },
+          shortWr: 0.70, medWr: 0.76, careerWr: 0.834,
+          tbWr: 0.68, comeback: 0.38, bb: 0.22, gps: 9.35, ret: 0.015,
+          rest: 11, m14: 1, m30: 3,
+          radar: { short_form: 74, med_form: 79, surface_mastery: 93, rank_power: 88, clutch_tb: 94, stamina_freshness: 84 }
+        },
+        "Fritz T.": {
+          rank: 5, pts: 5100, ovr: 85, legend: false,
+          surfWr: { Hard: 0.695, Clay: 0.585, Grass: 0.720 },
+          shortWr: 0.60, medWr: 0.68, careerWr: 0.635,
+          tbWr: 0.58, comeback: 0.24, bb: 0.14, gps: 10.12, ret: 0.018,
+          rest: 5, m14: 3, m30: 6,
+          radar: { short_form: 69, med_form: 74, surface_mastery: 76, rank_power: 85, clutch_tb: 79, stamina_freshness: 81 }
+        },
+        "Ruud C.": {
+          rank: 6, pts: 4320, ovr: 84, legend: false,
+          surfWr: { Hard: 0.605, Clay: 0.762, Grass: 0.480 },
+          shortWr: 0.80, medWr: 0.71, careerWr: 0.648,
+          tbWr: 0.56, comeback: 0.26, bb: 0.15, gps: 9.65, ret: 0.011,
+          rest: 3, m14: 4, m30: 8,
+          radar: { short_form: 83, med_form: 76, surface_mastery: 84, rank_power: 82, clutch_tb: 72, stamina_freshness: 75 }
+        },
+        "Rublev A.": {
+          rank: 8, pts: 3890, ovr: 83, legend: false,
+          surfWr: { Hard: 0.678, Clay: 0.665, Grass: 0.610 },
+          shortWr: 0.50, medWr: 0.64, careerWr: 0.640,
+          tbWr: 0.52, comeback: 0.22, bb: 0.16, gps: 9.74, ret: 0.016,
+          rest: 7, m14: 3, m30: 6,
+          radar: { short_form: 61, med_form: 69, surface_mastery: 72, rank_power: 80, clutch_tb: 66, stamina_freshness: 79 }
+        },
+        "Tsitsipas S.": {
+          rank: 11, pts: 3315, ovr: 82, legend: false,
+          surfWr: { Hard: 0.650, Clay: 0.742, Grass: 0.560 },
+          shortWr: 0.60, medWr: 0.66, careerWr: 0.665,
+          tbWr: 0.55, comeback: 0.25, bb: 0.14, gps: 9.88, ret: 0.019,
+          rest: 4, m14: 5, m30: 8,
+          radar: { short_form: 68, med_form: 71, surface_mastery: 80, rank_power: 75, clutch_tb: 71, stamina_freshness: 69 }
+        },
+        "Draper J.": {
+          rank: 14, pts: 2890, ovr: 83, legend: false,
+          surfWr: { Hard: 0.688, Clay: 0.575, Grass: 0.742 },
+          shortWr: 0.70, medWr: 0.69, careerWr: 0.630,
+          tbWr: 0.59, comeback: 0.28, bb: 0.15, gps: 9.95, ret: 0.025,
+          rest: 6, m14: 2, m30: 5,
+          radar: { short_form: 78, med_form: 74, surface_mastery: 79, rank_power: 73, clutch_tb: 76, stamina_freshness: 83 }
+        },
+        "Federer R.": {
+          rank: 2, pts: 9850, ovr: 96, legend: true,
+          surfWr: { Hard: 0.835, Clay: 0.761, Grass: 0.874 },
+          shortWr: 0.85, medWr: 0.86, careerWr: 0.820,
+          tbWr: 0.66, comeback: 0.33, bb: 0.25, gps: 9.40, ret: 0.004,
+          rest: 5, m14: 3, m30: 6,
+          radar: { short_form: 88, med_form: 90, surface_mastery: 94, rank_power: 95, clutch_tb: 89, stamina_freshness: 82 }
+        },
+        "Nadal R.": {
+          rank: 1, pts: 10420, ovr: 96, legend: true,
+          surfWr: { Hard: 0.776, Clay: 0.913, Grass: 0.781 },
+          shortWr: 0.90, medWr: 0.88, careerWr: 0.829,
+          tbWr: 0.63, comeback: 0.39, bb: 0.28, gps: 9.15, ret: 0.017,
+          rest: 4, m14: 4, m30: 7,
+          radar: { short_form: 91, med_form: 92, surface_mastery: 96, rank_power: 97, clutch_tb: 86, stamina_freshness: 78 }
+        },
+        "Murray A.": {
+          rank: 3, pts: 7820, ovr: 89, legend: true,
+          surfWr: { Hard: 0.778, Clay: 0.692, Grass: 0.808 },
+          shortWr: 0.75, medWr: 0.78, careerWr: 0.742,
+          tbWr: 0.60, comeback: 0.36, bb: 0.18, gps: 9.60, ret: 0.014,
+          rest: 6, m14: 3, m30: 6,
+          radar: { short_form: 79, med_form: 82, surface_mastery: 84, rank_power: 89, clutch_tb: 81, stamina_freshness: 80 }
+        }
+      };
+
+      /* Known H2H Records (p1_vs_p2) */
+      const H2H_RECORDS = {
+        "Alcaraz C.|Sinner J.": { p1Wins: 6, p2Wins: 4, surfP1: 4, surfP2: 2 },
+        "Sinner J.|Djokovic N.": { p1Wins: 5, p2Wins: 4, surfP1: 5, surfP2: 3 },
+        "Federer R.|Nadal R.": { p1Wins: 16, p2Wins: 24, surfP1: 11, surfP2: 9 },
+        "Ruud C.|Tsitsipas S.": { p1Wins: 3, p2Wins: 2, surfP1: 2, surfP2: 1 },
+        "Fritz T.|Draper J.": { p1Wins: 3, p2Wins: 2, surfP1: 1, surfP2: 1 },
+        "Zverev A.|Rublev A.": { p1Wins: 7, p2Wins: 3, surfP1: 5, surfP2: 2 },
+        "Djokovic N.|Nadal R.": { p1Wins: 31, p2Wins: 29, surfP1: 20, surfP2: 7 },
+        "Federer R.|Djokovic N.": { p1Wins: 23, p2Wins: 27, surfP1: 18, surfP2: 20 }
+      };
+
+      function lookupH2H(p1, p2) {
+        const direct = H2H_RECORDS[`${p1}|${p2}`];
+        if (direct) return { p1Wins: direct.p1Wins, p2Wins: direct.p2Wins, surfP1: direct.surfP1, surfP2: direct.surfP2 };
+        const rev = H2H_RECORDS[`${p2}|${p1}`];
+        if (rev) return { p1Wins: rev.p2Wins, p2Wins: rev.p1Wins, surfP1: rev.surfP2, surfP2: rev.surfP1 };
+        // Deterministic fallback H2H
+        const seed = (p1.length * 7 + p2.length * 11) % 5;
+        return { p1Wins: 2 + (seed % 3), p2Wins: 1 + ((seed + 1) % 3), surfP1: 1, surfP2: 1 };
+      }
+
+      /* =====================================================================
+         3. Power-Method De-Vigging & Quarter-Kelly Engine
+         ===================================================================== */
+      function computeEdgeAndKelly(probLgb, odd1, odd2) {
+        const o1 = Number(odd1);
+        const o2 = Number(odd2);
+        if (!Number.isFinite(o1) || !Number.isFinite(o2) || o1 <= 1.0 || o2 <= 1.0) return null;
+        const r1 = 1 / o1;
+        const r2 = 1 / o2;
+        const overround = r1 + r2;
+        // Solve r1^k + r2^k = 1 via bisection
+        let lo = 0.2;
+        let hi = 5.0;
+        for (let i = 0; i < 48; i++) {
+          const mid = (lo + hi) / 2;
+          const sum = Math.pow(r1, mid) + Math.pow(r2, mid);
+          if (sum > 1) lo = mid;
+          else hi = mid;
+        }
+        const k = (lo + hi) / 2;
+        const impP1 = Math.pow(r1, k);
+        const impP2 = Math.pow(r2, k);
+        const edgeP1 = probLgb - impP1;
+        const edgeP2 = (1 - probLgb) - impP2;
+        const favoredIsP1 = probLgb >= 0.5;
+        const edgeFav = favoredIsP1 ? edgeP1 : edgeP2;
+        const favOdd = favoredIsP1 ? o1 : o2;
+        const favProb = favoredIsP1 ? probLgb : 1 - probLgb;
+        const fullKelly = Math.max(0, (favProb * favOdd - 1) / (favOdd - 1));
+        const qKelly = fullKelly * 0.25;
+        return {
+          o1, o2, overround, impP1, impP2, edgeP1, edgeP2, edgeFav, qKelly,
+          signal: edgeFav >= 0.03 ? "VALUE" : edgeFav <= -0.015 ? "FADE" : "FAIR"
+        };
+      }
+
+      /* =====================================================================
+         4. Match Data Repository (Live Slate, Fallback Slate, Backtracker)
+         ===================================================================== */
+      const LIVE_SLATE = [
+        {
+          id: "alcaraz-sinner",
+          tournament: "ATP Finals • Turin",
+          round: "Semifinal",
+          status: "Scheduled 19:00",
+          isLive: false,
+          p1: "Alcaraz C.",
+          p2: "Sinner J.",
+          surface: "Hard",
+          series: "Masters Cup",
+          odd1: 1.62,
+          odd2: 2.35,
+          lgbP1: 0.648,
+          lrP1: 0.614,
+          symDelta: 0.000002,
+          hotspot: { x: 156, y: 46 }
+        },
+        {
+          id: "sinner-djokovic",
+          tournament: "Australian Open",
+          round: "Semifinal",
+          status: "Scheduled 19:30",
+          isLive: false,
+          p1: "Sinner J.",
+          p2: "Djokovic N.",
+          surface: "Hard",
+          series: "Grand Slam",
+          odd1: 1.60,
+          odd2: 2.42,
+          lgbP1: 0.684,
+          lrP1: 0.512,
+          symDelta: 0.000004,
+          hotspot: { x: 168, y: 78 }
+        },
+        {
+          id: "ruud-tsitsipas",
+          tournament: "Monte-Carlo Masters",
+          round: "Quarterfinal",
+          status: "Live • Set 2 (4–3)",
+          isLive: true,
+          p1: "Ruud C.",
+          p2: "Tsitsipas S.",
+          surface: "Clay",
+          series: "Masters 1000",
+          odd1: 1.80,
+          odd2: 2.02,
+          lgbP1: 0.589,
+          lrP1: 0.556,
+          symDelta: 0.000001,
+          hotspot: { x: 146, y: 84 }
+        },
+        {
+          id: "fritz-draper",
+          tournament: "Queen's Club",
+          round: "Round of 16",
+          status: "Scheduled 14:15",
+          isLive: false,
+          p1: "Fritz T.",
+          p2: "Draper J.",
+          surface: "Grass",
+          series: "ATP500",
+          odd1: 1.72,
+          odd2: 2.15,
+          lgbP1: 0.528,
+          lrP1: 0.541,
+          symDelta: 0.000003,
+          hotspot: { x: 184, y: 44 }
+        }
+      ];
+
+      const FALLBACK_SLATE = [
+        {
+          id: "federer-nadal",
+          tournament: "Roland Garros (Spotlight Archive)",
+          round: "Final • Classic",
+          status: "Deterministic Fallback",
+          isLive: false,
+          p1: "Federer R.",
+          p2: "Nadal R.",
+          surface: "Clay",
+          series: "Grand Slam",
+          odd1: 3.10,
+          odd2: 1.40,
+          lgbP1: 0.286,
+          lrP1: 0.318,
+          symDelta: 0.000002,
+          hotspot: { x: 74, y: 48 }
+        },
+        LIVE_SLATE[0],
+        LIVE_SLATE[1],
+        {
+          id: "zverev-rublev",
+          tournament: "Vienna Open (Spotlight)",
+          round: "Quarterfinal",
+          status: "Deterministic Fallback",
+          isLive: false,
+          p1: "Zverev A.",
+          p2: "Rublev A.",
+          surface: "Hard",
+          series: "ATP500",
+          odd1: null,
+          odd2: null,
+          lgbP1: 0.674,
+          lrP1: 0.651,
+          symDelta: 0.000002,
+          hotspot: { x: 162, y: 50 }
+        }
+      ];
+
+      const BACKTRACKER_DATA = {
+        "Test (2024–2026)": {
+          meta: "Chronological holdout • 5,412 ATP matches • Champion AUC 0.717 / LogLoss 0.615",
+          tournaments: {
+            "Australian Open 2025": [
+              {
+                id: "bt-ao25-sf",
+                label: "Sinner J. vs Djokovic N. (SF)",
+                p1: "Sinner J.",
+                p2: "Djokovic N.",
+                surface: "Hard",
+                series: "Grand Slam",
+                odd1: 1.60,
+                odd2: 2.42,
+                lgbP1: 0.684,
+                lrP1: 0.512,
+                symDelta: 0.000004,
+                actualWinner: "Sinner J.",
+                scoreline: "6–1, 6–2, 6–7(6), 6–3",
+                accurate: true
+              },
+              {
+                id: "bt-ao25-qf",
+                label: "Alcaraz C. vs Zverev A. (QF)",
+                p1: "Alcaraz C.",
+                p2: "Zverev A.",
+                surface: "Hard",
+                series: "Grand Slam",
+                odd1: 1.45,
+                odd2: 2.85,
+                lgbP1: 0.672,
+                lrP1: 0.648,
+                symDelta: 0.000002,
+                actualWinner: "Zverev A.",
+                scoreline: "6–1, 6–3, 6–7(2), 6–4",
+                accurate: false
+              }
+            ],
+            "Roland Garros 2024": [
+              {
+                id: "bt-rg24-f",
+                label: "Alcaraz C. vs Zverev A. (Final)",
+                p1: "Alcaraz C.",
+                p2: "Zverev A.",
+                surface: "Clay",
+                series: "Grand Slam",
+                odd1: 1.38,
+                odd2: 3.15,
+                lgbP1: 0.736,
+                lrP1: 0.702,
+                symDelta: 0.000001,
+                actualWinner: "Alcaraz C.",
+                scoreline: "6–3, 2–6, 5–7, 6–1, 6–2",
+                accurate: true
+              }
+            ]
+          }
+        },
+        "Validation (2022–2023)": {
+          meta: "Rolling temporal validation • 4,890 ATP matches • Calibration ECE 0.014",
+          tournaments: {
+            "Wimbledon 2023": [
+              {
+                id: "bt-wim23-f",
+                label: "Alcaraz C. vs Djokovic N. (Final)",
+                p1: "Alcaraz C.",
+                p2: "Djokovic N.",
+                surface: "Grass",
+                series: "Grand Slam",
+                odd1: 2.45,
+                odd2: 1.58,
+                lgbP1: 0.442,
+                lrP1: 0.391,
+                symDelta: 0.000003,
+                actualWinner: "Alcaraz C.",
+                scoreline: "1–6, 7–6(6), 6–1, 3–6, 6–4",
+                accurate: false
+              }
+            ],
+            "Monte-Carlo 2023": [
+              {
+                id: "bt-mc23-qf",
+                label: "Ruud C. vs Tsitsipas S. (QF)",
+                p1: "Ruud C.",
+                p2: "Tsitsipas S.",
+                surface: "Clay",
+                series: "Masters 1000",
+                odd1: 1.80,
+                odd2: 2.02,
+                lgbP1: 0.589,
+                lrP1: 0.556,
+                symDelta: 0.000001,
+                actualWinner: "Ruud C.",
+                scoreline: "6–4, 7–5",
+                accurate: true
+              }
+            ]
+          }
+        },
+        "Legends Archive (2000–2021)": {
+          meta: "Historical Tour Archive • Golden Era Big-3 rivalry calibration",
+          tournaments: {
+            "Roland Garros 2011": [
+              {
+                id: "bt-rg11-f",
+                label: "Federer R. vs Nadal R. (Final)",
+                p1: "Federer R.",
+                p2: "Nadal R.",
+                surface: "Clay",
+                series: "Grand Slam",
+                odd1: 3.10,
+                odd2: 1.40,
+                lgbP1: 0.286,
+                lrP1: 0.318,
+                symDelta: 0.000002,
+                actualWinner: "Nadal R.",
+                scoreline: "7–5, 7–6(3), 5–7, 6–1",
+                accurate: true
+              }
+            ],
+            "Wimbledon 2012": [
+              {
+                id: "bt-wim12-f",
+                label: "Federer R. vs Murray A. (Final)",
+                p1: "Federer R.",
+                p2: "Murray A.",
+                surface: "Grass",
+                series: "Grand Slam",
+                odd1: 1.52,
+                odd2: 2.65,
+                lgbP1: 0.692,
+                lrP1: 0.658,
+                symDelta: 0.000002,
+                actualWinner: "Federer R.",
+                scoreline: "4–6, 7–5, 6–3, 6–4",
+                accurate: true
+              }
+            ]
+          }
+        }
+      };
+
+      /* =====================================================================
+         5. Deterministic Feature Vector & Match Synthesis
+         ===================================================================== */
+      function esc(val) {
+        if (val === null || val === undefined) return "";
+        return String(val)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function clamp(x, min, max) {
+        return Math.max(min, Math.min(max, x));
+      }
+
+      function fmtSigned(val, decimals) {
+        const sign = val > 0 ? "+" : "";
+        return sign + val.toFixed(decimals);
+      }
+
+      function surfaceCode(surface) {
+        return surface === "Clay" ? 1 : surface === "Grass" ? 2 : 0;
+      }
+
+      function seriesCode(series) {
+        const map = { "ATP250": 0, "ATP500": 1, "Masters 1000": 2, "Masters Cup": 3, "Grand Slam": 4 };
+        return map[series] ?? 2;
+      }
+
+      function synthesizeMatchPayload(spec) {
+        const p1 = spec.p1;
+        const p2 = spec.p2;
+        const surface = spec.surface || "Hard";
+        const series = spec.series || "Grand Slam";
+        const a = PLAYERS[p1] || PLAYERS["Alcaraz C."];
+        const b = PLAYERS[p2] || PLAYERS["Sinner J."];
+        const h2h = lookupH2H(p1, p2);
+        const h2hTotal = h2h.p1Wins + h2h.p2Wins;
+        const h2hSurfTotal = h2h.surfP1 + h2h.surfP2;
+
+        const surfA = a.surfWr[surface] ?? a.surfWr.Hard;
+        const surfB = b.surfWr[surface] ?? b.surfWr.Hard;
+        const formDivA = a.shortWr - a.careerWr;
+        const formDivB = b.shortWr - b.careerWr;
+
+        const rawDeltas = {
+          rank_diff: a.rank - b.rank,
+          pts_diff: a.pts - b.pts,
+          short_winrate_diff: a.shortWr - b.shortWr,
+          short_tb_winrate_diff: (a.tbWr - b.tbWr) * 1.15,
+          short_comeback_rate_diff: a.comeback - b.comeback,
+          short_bb_rate_diff: a.bb - b.bb,
+          short_avg_games_per_set_diff: a.gps - b.gps,
+          med_winrate_diff: a.medWr - b.medWr,
+          med_tb_winrate_diff: a.tbWr - b.tbWr,
+          med_comeback_rate_diff: (a.comeback - b.comeback) * 0.85,
+          med_bb_rate_diff: (a.bb - b.bb) * 0.9,
+          med_avg_games_per_set_diff: (a.gps - b.gps) * 0.85,
+          med_ret_freq_diff: a.ret - b.ret,
+          career_winrate_diff: a.careerWr - b.careerWr,
+          career_tb_winrate_diff: (a.tbWr - b.tbWr) * 0.75,
+          career_comeback_rate_diff: (a.comeback - b.comeback) * 0.7,
+          career_bb_rate_diff: (a.bb - b.bb) * 0.8,
+          career_avg_games_per_set_diff: (a.gps - b.gps) * 0.7,
+          career_ret_freq_diff: (a.ret - b.ret) * 0.8,
+          surface_winrate_diff: surfA - surfB,
+          days_since_last_diff: a.rest - b.rest,
+          matches_14d_diff: a.m14 - b.m14,
+          matches_30d_diff: a.m30 - b.m30,
+          form_divergence_diff: formDivA - formDivB,
+          h2h_winrate: h2hTotal > 0 ? h2h.p1Wins / h2hTotal : 0.5,
+          h2h_match_count: h2hTotal,
+          h2h_surface_winrate: h2hSurfTotal > 0 ? h2h.surfP1 / h2hSurfTotal : 0.5,
+          h2h_surface_count: h2hSurfTotal,
+          surface_encoded: surfaceCode(surface),
+          series_encoded: seriesCode(series),
+          is_grand_slam: series === "Grand Slam" ? 1 : 0
+        };
+
+        // Compute probabilities if not explicitly supplied
+        let lgbP1 = spec.lgbP1;
+        let lrP1 = spec.lrP1;
+        if (typeof lgbP1 !== "number") {
+          const scoreLgb =
+            1.85 * rawDeltas.short_winrate_diff +
+            2.15 * rawDeltas.surface_winrate_diff +
+            1.40 * rawDeltas.med_winrate_diff -
+            0.032 * rawDeltas.rank_diff +
+            0.000045 * rawDeltas.pts_diff -
+            0.036 * rawDeltas.matches_14d_diff +
+            0.42 * (rawDeltas.h2h_winrate - 0.5);
+          const scoreLr =
+            1.25 * rawDeltas.short_winrate_diff +
+            1.65 * rawDeltas.surface_winrate_diff +
+            1.80 * rawDeltas.career_winrate_diff -
+            0.025 * rawDeltas.rank_diff +
+            0.35 * (rawDeltas.h2h_winrate - 0.5);
+          lgbP1 = clamp(1 / (1 + Math.exp(-scoreLgb)), 0.14, 0.88);
+          lrP1 = clamp(1 / (1 + Math.exp(-scoreLr)), 0.16, 0.86);
+        }
+
+        // Weights for realistic TreeSHAP & LR coef per feature
+        const weights = {
+          rank_diff: { w: -0.028, lr: -0.041 },
+          pts_diff: { w: 0.000018, lr: 0.000022 },
+          short_winrate_diff: { w: 0.92, lr: 0.78 },
+          short_tb_winrate_diff: { w: 0.42, lr: 0.31 },
+          short_comeback_rate_diff: { w: 0.25, lr: 0.18 },
+          short_bb_rate_diff: { w: 0.38, lr: 0.24 },
+          short_avg_games_per_set_diff: { w: -0.045, lr: -0.032 },
+          med_winrate_diff: { w: 0.74, lr: 0.68 },
+          med_tb_winrate_diff: { w: 0.35, lr: 0.28 },
+          med_comeback_rate_diff: { w: 0.18, lr: 0.14 },
+          med_bb_rate_diff: { w: 0.29, lr: 0.21 },
+          med_avg_games_per_set_diff: { w: -0.03, lr: -0.024 },
+          med_ret_freq_diff: { w: -1.1, lr: -0.85 },
+          career_winrate_diff: { w: 0.62, lr: 0.84 },
+          career_tb_winrate_diff: { w: 0.28, lr: 0.25 },
+          career_comeback_rate_diff: { w: 0.14, lr: 0.11 },
+          career_bb_rate_diff: { w: 0.22, lr: 0.18 },
+          career_avg_games_per_set_diff: { w: -0.02, lr: -0.015 },
+          career_ret_freq_diff: { w: -0.7, lr: -0.55 },
+          surface_winrate_diff: { w: 1.48, lr: 1.24 },
+          days_since_last_diff: { w: 0.011, lr: 0.009 },
+          matches_14d_diff: { w: -0.036, lr: -0.042 },
+          matches_30d_diff: { w: -0.014, lr: -0.018 },
+          form_divergence_diff: { w: 0.56, lr: 0.39 },
+          h2h_winrate: { w: 0.28, lr: 0.22 },
+          h2h_match_count: { w: 0.003, lr: 0.002 },
+          h2h_surface_winrate: { w: 0.32, lr: 0.25 },
+          h2h_surface_count: { w: 0.004, lr: 0.003 },
+          surface_encoded: { w: 0.008, lr: 0.005 },
+          series_encoded: { w: 0.006, lr: 0.004 },
+          is_grand_slam: { w: 0.012, lr: 0.009 }
+        };
+
+        const features = FEATURE_META.map((meta, idx) => {
+          const val = rawDeltas[meta.name];
+          const cfg = weights[meta.name];
+          let shap;
+          if (meta.name === "h2h_winrate" || meta.name === "h2h_surface_winrate") {
+            shap = (val - 0.5) * cfg.w;
+          } else if (meta.fmt === "int_abs") {
+            shap = val * cfg.w * (lgbP1 >= 0.5 ? 1 : -1);
+          } else {
+            shap = val * cfg.w;
+          }
+          const lrCoef = cfg.lr * (val === 0 ? 0.1 : 1);
+          return {
+            index: idx + 1,
+            name: meta.name,
+            label: meta.label,
+            category: meta.category,
+            fmt: meta.fmt,
+            delta: val,
+            shap,
+            lrCoef
+          };
+        });
+
+        const edge = computeEdgeAndKelly(lgbP1, spec.odd1, spec.odd2);
+        const divergence = Math.abs(lgbP1 - lrP1);
+        const favored = lgbP1 >= 0.5 ? p1 : p2;
+        const underdog = lgbP1 >= 0.5 ? p2 : p1;
+        const favProb = Math.max(lgbP1, 1 - lgbP1);
+        const dogProb = 1 - favProb;
+
+        return {
+          ...spec,
+          surface,
+          series,
+          p1Data: a,
+          p2Data: b,
+          h2h,
+          lgbP1,
+          lrP1,
+          favored,
+          underdog,
+          favProb,
+          dogProb,
+          divergence,
+          isDivergent: divergence > 0.15,
+          symDelta: spec.symDelta ?? 0.000002,
+          hotspot: spec.hotspot ?? { x: lgbP1 >= 0.5 ? 158 : 82, y: surface === "Clay" ? 82 : 48 },
+          edge,
+          rawDeltas,
+          features
+        };
+      }
+
+      /* =====================================================================
+         6. Reusable Unified Result Dossier Renderer (Option 1 Component)
+         ===================================================================== */
+      function surfaceBadgeClass(surface) {
+        if (surface === "Clay") return "badge-clay";
+        if (surface === "Grass") return "badge-grass";
+        return "badge-hard";
+      }
+
+      function formatDeltaCell(val, fmt) {
+        if (fmt === "int") return (val > 0 ? "+" : "") + Math.round(val);
+        if (fmt === "int_abs") return String(Math.round(val));
+        if (fmt === "dec3") return fmtSigned(val, 3);
+        return fmtSigned(val, 4);
+      }
+
+      let radarInstanceCounter = 0;
+
+      function buildRadarSVG(d, instanceId) {
+        const cx = 210;
+        const cy = 165;
+        const maxR = 104;
+        const levels = [25, 50, 75, 100];
+        const n = RADAR_AXES.length;
+        const polar = (r, idx) => {
+          const angle = -Math.PI / 2 + (idx * 2 * Math.PI) / n;
+          return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+        };
+
+        const rings = levels.map((lvl) => {
+          const r = (lvl / 100) * maxR;
+          const pts = RADAR_AXES.map((_, i) => {
+            const p = polar(r, i);
+            return `${p.x.toFixed(1)},${p.y.toFixed(1)}`;
+          }).join(" ");
+          return `<polygon points="${pts}" fill="none" stroke="#1D646C" stroke-opacity="0.24" stroke-width="1" />`;
+        }).join("");
+
+        const spokes = RADAR_AXES.map((_, i) => {
+          const p = polar(maxR, i);
+          return `<line x1="${cx}" y1="${cy}" x2="${p.x.toFixed(1)}" y2="${p.y.toFixed(1)}" stroke="#1D646C" stroke-opacity="0.28" stroke-width="1" />`;
+        }).join("");
+
+        const polyPts = (radar) => RADAR_AXES.map((ax, i) => {
+          const score = clamp(radar[ax.key] ?? 50, 0, 100);
+          const p = polar((score / 100) * maxR, i);
+          return `${p.x.toFixed(1)},${p.y.toFixed(1)}`;
+        }).join(" ");
+
+        const p1Pts = polyPts(d.p1Data.radar);
+        const p2Pts = polyPts(d.p2Data.radar);
+
+        const hotspots = RADAR_AXES.map((ax, i) => {
+          const s1 = d.p1Data.radar[ax.key];
+          const s2 = d.p2Data.radar[ax.key];
+          const pt1 = polar((s1 / 100) * maxR, i);
+          const pt2 = polar((s2 / 100) * maxR, i);
+          const lbl = polar(maxR + 24, i);
+          const anchor = Math.abs(lbl.x - cx) < 12 ? "middle" : lbl.x > cx ? "start" : "end";
+          const dy = lbl.y < cy - 10 ? -2 : lbl.y > cy + 10 ? 6 : 3;
+          return `
+            <g class="radar-axis-hotspot ${i === 0 ? "is-active" : ""}" tabindex="0" role="button" data-axis-idx="${i}" data-radar="${instanceId}">
+              <circle class="axis-dot" cx="${pt1.x.toFixed(1)}" cy="${pt1.y.toFixed(1)}" r="4" fill="#EA4F88" />
+              <circle cx="${pt2.x.toFixed(1)}" cy="${pt2.y.toFixed(1)}" r="3.5" fill="#3E7D84" />
+              <text x="${lbl.x.toFixed(1)}" y="${(lbl.y + dy).toFixed(1)}" text-anchor="${anchor}" font-family="Plus Jakarta Sans, sans-serif" font-size="11" font-weight="600" fill="#13454B">${esc(ax.label)}</text>
+            </g>
+          `;
+        }).join("");
+
+        return `
+          <svg viewBox="0 0 420 330" width="100%" role="img" aria-label="6-Axis Scouting Radar Duel comparing ${esc(d.p1)} and ${esc(d.p2)}">
+            ${rings}
+            ${spokes}
+            <polygon points="${p2Pts}" fill="rgba(62,125,132,0.18)" stroke="#3E7D84" stroke-width="1.8" stroke-dasharray="4 3" />
+            <polygon points="${p1Pts}" fill="rgba(234,79,136,0.20)" stroke="#EA4F88" stroke-width="2.2" />
+            ${hotspots}
+          </svg>
+        `;
+      }
+
+      function renderUnifiedDossier(mountEl, rawSpec, opts = {}) {
+        const d = synthesizeMatchPayload(rawSpec);
+        const uid = "d" + (++radarInstanceCounter);
+        const favoredIsP1 = d.lgbP1 >= 0.5;
+        const p1ProbPct = (d.lgbP1 * 100).toFixed(1);
+        const p2ProbPct = ((1 - d.lgbP1) * 100).toFixed(1);
+        const favPct = (d.favProb * 100).toFixed(1);
+        const dogPct = (d.dogProb * 100).toFixed(1);
+        const lrFavPct = ((favoredIsP1 ? d.lrP1 : 1 - d.lrP1) * 100).toFixed(1);
+        const lrDogPct = (100 - Number(lrFavPct)).toFixed(1);
+        const divPct = (d.divergence * 100).toFixed(1);
+
+        let evBadge = `<span class="badge badge-neutral">No Market Odds &bull; Model Only</span>`;
+        if (d.edge) {
+          const edgePct = (d.edge.edgeFav * 100).toFixed(1);
+          if (d.edge.signal === "VALUE") {
+            evBadge = `<span class="badge badge-ev">+${edgePct}% EV Edge (${esc(d.favored)})</span>`;
+          } else if (d.edge.signal === "FADE") {
+            evBadge = `<span class="badge badge-fade">${edgePct}% Market Fade</span>`;
+          } else {
+            evBadge = `<span class="badge badge-neutral metric-tabular">${Number(edgePct) >= 0 ? "+" : ""}${edgePct}% Fair Line</span>`;
+          }
+        }
+
+        const divBadge = d.isDivergent
+          ? `<span class="badge badge-divergent">DIVERGENT &gt;15% (${divPct}%)</span>`
+          : `<span class="badge badge-consensus">CONSENSUS (&Delta; ${divPct}%)</span>`;
+
+        const deVigText = d.edge
+          ? `${((favoredIsP1 ? d.edge.impP1 : d.edge.impP2) * 100).toFixed(1)}% / ${((favoredIsP1 ? d.edge.impP2 : d.edge.impP1) * 100).toFixed(1)}%`
+          : "No Odds Supplied";
+        const kellyText = d.edge
+          ? `${(d.edge.qKelly * 100).toFixed(2)}%`
+          : "—";
+        const kellyCls = d.edge && d.edge.qKelly > 0 ? "inline-pink" : "";
+
+        // 5 Key Deltas (Always visible — never buried behind tabs)
+        const rankDelta = d.rawDeltas.rank_diff;
+        const surfWrDelta = d.rawDeltas.surface_winrate_diff * 100;
+        const formDivDelta = d.rawDeltas.form_divergence_diff * 100;
+        const fat14Delta = d.rawDeltas.matches_14d_diff;
+        const h2hText = `${d.h2h.p1Wins} – ${d.h2h.p2Wins}`;
+
+        // Top 6 TreeSHAP drivers sorted by |shap|
+        const topDrivers = [...d.features]
+          .sort((x, y) => Math.abs(y.shap) - Math.abs(x.shap))
+          .slice(0, 6);
+        const maxAbsShap = Math.max(0.05, ...topDrivers.map((f) => Math.abs(f.shap)));
+        const netPull = d.features.reduce((acc, f) => acc + f.shap, 0);
+
+        const driversHtml = topDrivers.map((f) => {
+          const favPull = favoredIsP1 ? f.shap : -f.shap;
+          const towardFav = favPull >= 0;
+          const pct = clamp((Math.abs(favPull) / maxAbsShap) * 46, 4, 46).toFixed(1);
+          const barCls = towardFav ? "p1" : "p2";
+          const valCls = towardFav ? "inline-pink" : "";
+          const valStyle = towardFav ? "" : `style="color:var(--ink-muted);"`;
+          const driverPullLabel = towardFav ? d.favored : d.underdog;
+          return `
+            <div class="shap-item">
+              <div>
+                <strong style="font-size:13px; color:var(--ink-deep);">${esc(f.label)}</strong>
+                <div class="meta-caption">Delta <span class="metric-tabular">${esc(formatDeltaCell(f.delta, f.fmt))}</span> &bull; &rarr; ${esc(driverPullLabel)}</div>
+              </div>
+              <div class="shap-track"><span class="shap-mid"></span><div class="shap-bar ${barCls}" style="width:${pct}%"></div></div>
+              <div class="metric-tabular ${valCls}" ${valStyle} style="text-align:right; font-weight:700;">${fmtSigned(favPull, 3)}</div>
+            </div>
+          `;
+        }).join("");
+
+        const categories = ["All (31)", ...new Set(FEATURE_META.map((m) => m.category))];
+        const catPillsHtml = categories.map((cat, idx) =>
+          `<button class="cat-pill ${idx === 0 ? "is-active" : ""}" type="button" data-cat="${esc(cat)}">${esc(cat)}</button>`
+        ).join("");
+
+        const matrixRowsHtml = d.features.map((f) => {
+          const shapCls = f.shap >= 0 ? "inline-pink" : "";
+          const shapStyle = f.shap >= 0 ? "" : `style="color:var(--ink-muted);"`;
+          return `
+            <tr data-cat="${esc(f.category)}">
+              <td class="num">${f.index}</td>
+              <td><strong>${esc(f.name)}</strong><div class="meta-caption">${esc(f.label)}</div></td>
+              <td>${esc(f.category)}</td>
+              <td class="num">${esc(formatDeltaCell(f.delta, f.fmt))}</td>
+              <td class="num ${shapCls}" ${shapStyle}>${fmtSigned(f.shap, 5)}</td>
+              <td class="num">${fmtSigned(f.lrCoef, 4)}</td>
+            </tr>
+          `;
+        }).join("");
+
+        const courtStroke = d.surface === "Clay" ? "#B85335" : d.surface === "Grass" ? "#2B7A4B" : "#1D646C";
+        const courtTint = d.surface === "Clay" ? "rgba(184,83,53,0.08)" : d.surface === "Grass" ? "rgba(43,122,75,0.08)" : "rgba(36,107,158,0.07)";
+
+        mountEl.innerHTML = `
+          <!-- Focal Verdict Print Plate ("One Diva Per Stage") -->
+          <section class="riso-card print-plate" aria-label="Unified Matchup Verdict">
+            <div class="verdict-meta-row">
+              <span class="badge ${surfaceBadgeClass(d.surface)}">${esc(d.surface)} Court</span>
+              <span class="badge badge-neutral">${esc(d.series)}</span>
+              ${evBadge}
+              ${divBadge}
+              <span class="badge badge-neutral metric-tabular">Sym &Delta; ${d.symDelta.toFixed(6)}</span>
+            </div>
+
+            <div class="verdict-grid">
+              <div>
+                <div class="verdict-players">
+                  <div>
+                    <div class="meta-caption">Favored &bull; LightGBM Champion</div>
+                    <div class="player-block-name">${esc(d.favored)}</div>
+                  </div>
+                  <div style="text-align:right;">
+                    <div class="meta-caption">Underdog</div>
+                    <div class="player-block-name">${esc(d.underdog)}</div>
+                  </div>
+                </div>
+
+                <div class="verdict-players" style="margin-bottom:6px;">
+                  <span class="player-block-prob prob-fav">${favPct}%</span>
+                  <span class="player-block-prob prob-dog">${dogPct}%</span>
+                </div>
+
+                <!-- Single-Favored-Pink Probability Bar -->
+                <div class="prob-track" aria-label="Win Probability Split">
+                  <div class="prob-fill-favored" style="width:${favPct}%"></div>
+                  <div class="prob-fill-underdog" style="width:${dogPct}%"></div>
+                </div>
+
+                <div class="kelly-strip">
+                  <div class="kelly-cell">
+                    <span>Power De-Vig Implied</span>
+                    <strong>${deVigText}</strong>
+                  </div>
+                  <div class="kelly-cell">
+                    <span>LogReg Baseline Split</span>
+                    <strong>${lrFavPct}% / ${lrDogPct}%</strong>
+                  </div>
+                  <div class="kelly-cell">
+                    <span>1/4 Kelly Stake</span>
+                    <strong class="${kellyCls}">${kellyText}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Court Schematic & Divergence Gauge -->
+              <div class="court-schematic-box">
+                <div class="meta-caption" style="margin-bottom:6px;">Court Surface &amp; Calibration Hotspot</div>
+                <svg viewBox="0 0 240 130" width="100%" height="118" role="img" aria-label="Tennis court schematic with shot-bounce hotspot">
+                  <rect x="16" y="12" width="208" height="106" fill="${courtTint}" stroke="${courtStroke}" stroke-width="1.8" />
+                  <line x1="16" y1="26" x2="224" y2="26" stroke="${courtStroke}" stroke-width="1.2" />
+                  <line x1="16" y1="104" x2="224" y2="104" stroke="${courtStroke}" stroke-width="1.2" />
+                  <line x1="66" y1="26" x2="66" y2="104" stroke="${courtStroke}" stroke-width="1.2" />
+                  <line x1="174" y1="26" x2="174" y2="104" stroke="${courtStroke}" stroke-width="1.2" />
+                  <line x1="66" y1="65" x2="174" y2="65" stroke="${courtStroke}" stroke-width="1.2" />
+                  <line x1="120" y1="8" x2="120" y2="122" stroke="#1D646C" stroke-width="2" stroke-dasharray="3 2" />
+                  <circle cx="${d.hotspot.x}" cy="${d.hotspot.y}" r="14" fill="rgba(234,79,136,0.22)" stroke="#EA4F88" stroke-width="1.5" />
+                  <circle cx="${d.hotspot.x}" cy="${d.hotspot.y}" r="5" fill="#EA4F88" />
+                </svg>
+                <div class="meta-caption">
+                  Model Divergence <strong class="metric-tabular ${d.isDivergent ? "inline-pink" : ""}" style="${d.isDivergent ? "" : "color:var(--ink-deep);"}">${divPct}%</strong> &bull; ${d.isDivergent ? "LGBM &amp; LogReg Disagree" : "Consensus"}
+                </div>
+              </div>
+            </div>
+
+            <!-- Always-Visible 1-Row 5 Key Delta Strip (Audit Critique Resolution) -->
+            <div class="key-delta-strip" aria-label="5 Key Matchup Deltas (P1 minus P2)">
+              <div class="delta-pill">
+                <span>Rank &Delta; (P1&minus;P2)</span>
+                <strong>${rankDelta > 0 ? "+" : ""}${rankDelta}</strong>
+              </div>
+              <div class="delta-pill">
+                <span>${esc(d.surface)} WR &Delta;</span>
+                <strong class="${surfWrDelta >= 0 ? "inline-pink" : ""}">${fmtSigned(surfWrDelta, 1)}%</strong>
+              </div>
+              <div class="delta-pill">
+                <span>Form Div &Delta;</span>
+                <strong>${fmtSigned(formDivDelta, 1)}%</strong>
+              </div>
+              <div class="delta-pill">
+                <span>Fatigue 14D &Delta;</span>
+                <strong>${fat14Delta > 0 ? "+" : ""}${fat14Delta}M</strong>
+              </div>
+              <div class="delta-pill">
+                <span>H2H Record (P1–P2)</span>
+                <strong>${esc(h2hText)}</strong>
+              </div>
+            </div>
+          </section>
+
+          <!-- Diamond-Mesh Tennis Net Divider -->
+          <svg class="net-divider" height="22" viewBox="0 0 1132 22" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <pattern id="netPat_${uid}" width="16" height="16" patternUnits="userSpaceOnUse">
+                <path d="M 0 8 L 8 0 L 16 8 L 8 16 Z" fill="none" stroke="#1D646C" stroke-width="0.9" stroke-opacity="0.45" />
+              </pattern>
+            </defs>
+            <line x1="0" y1="3" x2="1132" y2="3" stroke="#1D646C" stroke-width="2" />
+            <rect x="0" y="4" width="1132" height="14" fill="url(#netPat_${uid})" />
+            <line x1="0" y1="19" x2="1132" y2="19" stroke="#1D646C" stroke-width="1" stroke-opacity="0.55" />
+            <rect x="560" y="1" width="12" height="20" rx="2" fill="#EA4F88" stroke="#1D646C" stroke-width="1.2" />
+          </svg>
+
+          <!-- 3 Progressive Disclosure Tabs -->
+          <section aria-label="Detailed Diagnostics">
+            <div class="subtab-bar" role="tablist">
+              <button class="subtab-btn is-active" type="button" data-panel="drivers">1. TreeSHAP Drivers</button>
+              <button class="subtab-btn" type="button" data-panel="scouting">2. Scouting Cards &amp; 6-Axis Radar</button>
+              <button class="subtab-btn" type="button" data-panel="matrix">3. 31-Feature Matrix</button>
+            </div>
+
+            <!-- Tab 1: TreeSHAP Drivers -->
+            <div class="riso-card" data-tab-panel="drivers">
+              <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+                <div>
+                  <h3 class="card-title-sm">Key Log-Odds Drivers (Top 6 of 31)</h3>
+                  <p class="meta-caption">Pink pulls toward favored <strong>${esc(d.favored)}</strong>; muted teal pulls toward <strong>${esc(d.underdog)}</strong>.</p>
+                </div>
+                <span class="badge badge-neutral metric-tabular">Net P1 Pull: ${fmtSigned(netPull, 3)}</span>
+              </div>
+              ${driversHtml}
+            </div>
+
+            <!-- Tab 2: Scouting Cards & 6-Axis Radar -->
+            <div class="is-hidden" data-tab-panel="scouting">
+              <div class="two-col">
+                <article class="riso-card">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                      <h3 class="card-title-sm" style="font-size:16px;">${esc(d.p1)} <span class="meta-caption metric-tabular">(${p1ProbPct}%)</span></h3>
+                      <p class="meta-caption">Rank <strong class="metric-tabular">#${d.p1Data.rank}</strong> &bull; <strong class="metric-tabular">${d.p1Data.pts.toLocaleString()}</strong> pts</p>
+                    </div>
+                    <div class="riso-well" style="text-align:center; padding:6px 12px;">
+                      <strong class="metric-tabular ${favoredIsP1 ? "inline-pink" : ""}" style="font-size:22px;">${d.p1Data.ovr}</strong>
+                      <div style="font-size:10px; color:var(--ink-muted);">OVR</div>
+                    </div>
+                  </div>
+                  <div class="stat-row-5">
+                    <div class="stat-mini"><span>${esc(d.surface)} WR</span><strong>${((d.p1Data.surfWr[d.surface] ?? d.p1Data.surfWr.Hard) * 100).toFixed(1)}%</strong></div>
+                    <div class="stat-mini"><span>10M</span><strong>${(d.p1Data.shortWr * 100).toFixed(0)}%</strong></div>
+                    <div class="stat-mini"><span>Career</span><strong>${(d.p1Data.careerWr * 100).toFixed(1)}%</strong></div>
+                    <div class="stat-mini"><span>Rest</span><strong>${d.p1Data.rest}d</strong></div>
+                    <div class="stat-mini"><span>14d</span><strong>${d.p1Data.m14}M</strong></div>
+                  </div>
+                </article>
+
+                <article class="riso-card">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                      <h3 class="card-title-sm" style="font-size:16px;">${esc(d.p2)} <span class="meta-caption metric-tabular">(${p2ProbPct}%)</span></h3>
+                      <p class="meta-caption">Rank <strong class="metric-tabular">#${d.p2Data.rank}</strong> &bull; <strong class="metric-tabular">${d.p2Data.pts.toLocaleString()}</strong> pts</p>
+                    </div>
+                    <div class="riso-well" style="text-align:center; padding:6px 12px;">
+                      <strong class="metric-tabular ${!favoredIsP1 ? "inline-pink" : ""}" style="font-size:22px;">${d.p2Data.ovr}</strong>
+                      <div style="font-size:10px; color:var(--ink-muted);">OVR</div>
+                    </div>
+                  </div>
+                  <div class="stat-row-5">
+                    <div class="stat-mini"><span>${esc(d.surface)} WR</span><strong>${((d.p2Data.surfWr[d.surface] ?? d.p2Data.surfWr.Hard) * 100).toFixed(1)}%</strong></div>
+                    <div class="stat-mini"><span>10M</span><strong>${(d.p2Data.shortWr * 100).toFixed(0)}%</strong></div>
+                    <div class="stat-mini"><span>Career</span><strong>${(d.p2Data.careerWr * 100).toFixed(1)}%</strong></div>
+                    <div class="stat-mini"><span>Rest</span><strong>${d.p2Data.rest}d</strong></div>
+                    <div class="stat-mini"><span>14d</span><strong>${d.p2Data.m14}M</strong></div>
+                  </div>
+                </article>
+              </div>
+
+              <article class="riso-card" style="margin-top:16px;">
+                <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; align-items:center;">
+                  <div>
+                    <h3 class="card-title-sm">6-Axis Scouting Radar Duel</h3>
+                    <p class="meta-caption">Click or focus any axis label/vertex to inspect exact P1 vs P2 percentile scores.</p>
+                  </div>
+                  <div style="display:flex; gap:12px; font-size:12px; font-weight:600;">
+                    <span class="inline-pink">&#9632; ${esc(d.p1)}</span>
+                    <span style="color:var(--ink-muted);">&#9632; ${esc(d.p2)}</span>
+                  </div>
+                </div>
+                <div class="radar-layout">
+                  <div>${buildRadarSVG(d, uid)}</div>
+                  <div class="riso-well" id="radarReadout_${uid}"></div>
+                </div>
+              </article>
+            </div>
+
+            <!-- Tab 3: 31-Feature Matrix -->
+            <div class="riso-card is-hidden" data-tab-panel="matrix">
+              <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+                <div>
+                  <h3 class="card-title-sm">Full 31-Feature Symmetrized Predictor Matrix</h3>
+                  <p class="meta-caption">All deltas computed as P1 (${esc(d.p1)}) minus P2 (${esc(d.p2)}). Filter by feature family below.</p>
+                </div>
+                <span class="badge badge-neutral metric-tabular" id="matrixCount_${uid}">31 / 31 Predictors</span>
+              </div>
+              <div class="cat-pills" role="group" aria-label="Feature Category Filter">
+                ${catPillsHtml}
+              </div>
+              <div class="matrix-scroll">
+                <table class="riso-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Predictor</th>
+                      <th>Category</th>
+                      <th class="num">Delta</th>
+                      <th class="num">TreeSHAP</th>
+                      <th class="num">LR Coef</th>
+                    </tr>
+                  </thead>
+                  <tbody>${matrixRowsHtml}</tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        `;
+
+        // Wire Progressive Disclosure Tabs
+        const tabBtns = mountEl.querySelectorAll(".subtab-btn");
+        const tabPanels = mountEl.querySelectorAll("[data-tab-panel]");
+        tabBtns.forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const target = btn.getAttribute("data-panel");
+            tabBtns.forEach((b) => b.classList.toggle("is-active", b === btn));
+            tabPanels.forEach((p) => p.classList.toggle("is-hidden", p.getAttribute("data-tab-panel") !== target));
+          });
+        });
+
+        // Wire 6-Axis Radar Readout
+        const readoutEl = mountEl.querySelector(`#radarReadout_${uid}`);
+        const updateRadarReadout = (idx) => {
+          const ax = RADAR_AXES[idx] || RADAR_AXES[0];
+          const v1 = d.p1Data.radar[ax.key];
+          const v2 = d.p2Data.radar[ax.key];
+          const diff = v1 - v2;
+          readoutEl.innerHTML = `
+            <div class="meta-caption">Selected Scouting Axis</div>
+            <h4 style="margin:2px 0 10px; font-size:15px; color:var(--ink-deep);">${esc(ax.label)}</h4>
+            <div class="fixture-row">
+              <span>${esc(d.p1)}</span>
+              <strong class="metric-tabular inline-pink">${v1} / 100</strong>
+            </div>
+            <div class="fixture-row" style="margin-top:4px;">
+              <span style="color:var(--ink-muted);">${esc(d.p2)}</span>
+              <strong class="metric-tabular" style="color:var(--ink-deep);">${v2} / 100</strong>
+            </div>
+            <div style="margin-top:10px; padding-top:8px; border-top:1px solid var(--border-subtle);" class="meta-caption">
+              Axis Advantage: <strong class="metric-tabular" style="color:var(--ink-deep);">${diff >= 0 ? esc(d.p1) + " (+" + diff + ")" : esc(d.p2) + " (+" + Math.abs(diff) + ")"}</strong>
+            </div>
+          `;
+        };
+        updateRadarReadout(0);
+        const hotspots = mountEl.querySelectorAll(`[data-radar="${uid}"]`);
+        hotspots.forEach((hs) => {
+          const activate = () => {
+            const idx = Number(hs.getAttribute("data-axis-idx"));
+            hotspots.forEach((el) => el.classList.toggle("is-active", el === hs));
+            updateRadarReadout(idx);
+          };
+          hs.addEventListener("click", activate);
+          hs.addEventListener("keydown", (ev) => {
+            if (ev.key === "Enter" || ev.key === " ") {
+              ev.preventDefault();
+              activate();
+            }
+          });
+        });
+
+        // Wire 31-Feature Category Filter Pills
+        const catBtns = mountEl.querySelectorAll(".cat-pill");
+        const matrixRows = mountEl.querySelectorAll("tbody tr");
+        const countBadge = mountEl.querySelector(`#matrixCount_${uid}`);
+        catBtns.forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const cat = btn.getAttribute("data-cat");
+            catBtns.forEach((b) => b.classList.toggle("is-active", b === btn));
+            let visible = 0;
+            matrixRows.forEach((row) => {
+              const show = cat === "All (31)" || row.getAttribute("data-cat") === cat;
+              row.classList.toggle("is-hidden", !show);
+              if (show) visible += 1;
+            });
+            countBadge.textContent = `${visible} / 31 Predictors`;
+          });
+        });
+      }
+
+      /* =====================================================================
+         7. View 1 (#slate): Render & Interactions
+         ===================================================================== */
+      const slateState = {
+        series: "ALL",
+        valueOnly: false,
+        simulateFallback: false
+      };
+
+      function getActiveSlate() {
+        return slateState.simulateFallback ? FALLBACK_SLATE : LIVE_SLATE;
+      }
+
+      function findMatchById(id) {
+        return [...LIVE_SLATE, ...FALLBACK_SLATE].find((m) => m.id === id) || LIVE_SLATE[0];
+      }
+
+      function renderSlateView() {
+        const rawList = getActiveSlate();
+        const enriched = rawList.map((m) => synthesizeMatchPayload(m));
+        const liveCount = enriched.filter((m) => m.isLive).length;
+        const edgeCount = enriched.filter((m) => m.edge && m.edge.signal === "VALUE").length;
+
+        document.getElementById("navSlateCount").textContent = `(${enriched.length})`;
+        document.getElementById("kpiFixtures").textContent = String(enriched.length);
+        document.getElementById("kpiLive").textContent = String(liveCount);
+        document.getElementById("kpiEdges").textContent = String(edgeCount);
+        document.getElementById("fallbackBanner").classList.toggle("is-hidden", !slateState.simulateFallback);
+
+        const filtered = enriched.filter((d) => {
+          if (slateState.series !== "ALL" && d.series !== slateState.series) return false;
+          if (slateState.valueOnly && !(d.edge && d.edge.signal === "VALUE")) return false;
+          return true;
+        });
+
+        const grid = document.getElementById("slateGrid");
+        if (filtered.length === 0) {
+          grid.innerHTML = `
+            <div class="riso-card" style="grid-column:1 / -1; text-align:center; padding:28px;">
+              <strong style="color:var(--ink-deep);">No fixtures match the active filter combination.</strong>
+              <p class="meta-caption" style="margin-top:6px;">Switch back to "All Series" or uncheck "Value Edges Only".</p>
+            </div>
+          `;
+          return;
+        }
+
+        grid.innerHTML = filtered.map((d, idx) => {
+          const favPct = (d.favProb * 100).toFixed(1);
+          const dogPct = (d.dogProb * 100).toFixed(1);
+          const favOdd = d.edge ? (d.lgbP1 >= 0.5 ? d.odd1 : d.odd2).toFixed(2) : null;
+          const dogOdd = d.edge ? (d.lgbP1 >= 0.5 ? d.odd2 : d.odd1).toFixed(2) : null;
+
+          let edgeBadge = `<span class="badge badge-neutral">No Odds</span>`;
+          let footerLeft = `<span class="metric-tabular">LogReg: ${((d.lgbP1 >= 0.5 ? d.lrP1 : 1 - d.lrP1) * 100).toFixed(1)}% / ${((d.lgbP1 >= 0.5 ? 1 - d.lrP1 : d.lrP1) * 100).toFixed(1)}%</span>`;
+          if (d.edge) {
+            const ePct = (d.edge.edgeFav * 100).toFixed(1);
+            if (d.edge.signal === "VALUE") {
+              edgeBadge = `<span class="badge badge-ev">+${ePct}% EV</span>`;
+              footerLeft = `<span>1/4 Kelly: <strong class="metric-tabular inline-pink">${(d.edge.qKelly * 100).toFixed(2)}%</strong></span>`;
+            } else if (d.edge.signal === "FADE") {
+              edgeBadge = `<span class="badge badge-fade">${ePct}% Fade</span>`;
+              footerLeft = `<span>Market Consensus</span>`;
+            } else {
+              edgeBadge = `<span class="badge badge-neutral metric-tabular">${Number(ePct) >= 0 ? "+" : ""}${ePct}% Fair</span>`;
+            }
+          }
+
+          const divBadge = d.isDivergent
+            ? `<span class="badge badge-divergent">DIVERGENT &gt;15%</span>`
+            : "";
+
+          const plateCls = idx === 0 || (d.edge && d.edge.signal === "VALUE") ? "print-plate" : "";
+          return `
+            <article class="riso-card ${plateCls} fixture-card" tabindex="0" role="button" data-match-id="${esc(d.id)}" aria-label="Open dossier for ${esc(d.p1)} vs ${esc(d.p2)}">
+              <div class="fixture-row">
+                <div>
+                  <strong class="card-title-sm">${esc(d.tournament)}</strong>
+                  <div class="meta-caption">${esc(d.round)} &bull; ${esc(d.status)}</div>
+                </div>
+                ${edgeBadge}
+              </div>
+              <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                <span class="badge ${surfaceBadgeClass(d.surface)}">${esc(d.surface)}</span>
+                <span class="badge badge-neutral">${esc(d.series)}</span>
+                ${divBadge}
+              </div>
+              <div class="riso-well">
+                <div class="fixture-row">
+                  <strong>${esc(d.favored)}</strong>
+                  <span class="metric-tabular inline-pink" style="font-weight:700;">${favPct}%${favOdd ? " (Odds " + favOdd + ")" : ""}</span>
+                </div>
+                <div class="fixture-row" style="margin-top:4px;">
+                  <span style="color:var(--ink-muted);">${esc(d.underdog)}</span>
+                  <span class="metric-tabular" style="color:var(--ink-muted);">${dogPct}%${dogOdd ? " (Odds " + dogOdd + ")" : ""}</span>
+                </div>
+                <div class="prob-track" style="margin-top:8px;">
+                  <div class="prob-fill-favored" style="width:${favPct}%"></div>
+                  <div class="prob-fill-underdog" style="width:${dogPct}%"></div>
+                </div>
+              </div>
+              <div class="fixture-row meta-caption">
+                ${footerLeft}
+                <span>Open Dossier &rarr;</span>
+              </div>
+            </article>
+          `;
+        }).join("");
+
+        grid.querySelectorAll(".fixture-card").forEach((card) => {
+          const openMatch = () => {
+            window.location.hash = `#match/${card.getAttribute("data-match-id")}`;
+          };
+          card.addEventListener("click", openMatch);
+          card.addEventListener("keydown", (ev) => {
+            if (ev.key === "Enter" || ev.key === " ") {
+              ev.preventDefault();
+              openMatch();
+            }
+          });
+        });
+      }
+
+      /* =====================================================================
+         8. View 2 (#match/<id>): Editorial Dossier
+         ===================================================================== */
+      let currentMatchSpec = LIVE_SLATE[0];
+
+      function renderMatchView(matchId) {
+        currentMatchSpec = findMatchById(matchId);
+        document.getElementById("matchHeroTitle").innerHTML = `${esc(currentMatchSpec.p1)} vs ${esc(currentMatchSpec.p2)}<span class="focal-accent">.</span>`;
+        document.getElementById("matchHeroSubtitle").textContent = `${currentMatchSpec.tournament} (${currentMatchSpec.round}) • ${currentMatchSpec.surface} Court • Symmetrized LightGBM vs Logistic Regression Dossier.`;
+        renderUnifiedDossier(document.getElementById("matchDossierMount"), currentMatchSpec);
+      }
+
+      /* =====================================================================
+         9. View 3A (#arena): Custom / Fantasy Workbench
+         ===================================================================== */
+      const ARENA_PRESETS = [
+        { label: "Federer R. vs Nadal R.", tag: "Clay Classic", p1: "Federer R.", p2: "Nadal R.", surface: "Clay", series: "Grand Slam", odd1: 3.10, odd2: 1.40, lgbP1: 0.286, lrP1: 0.318, legend: true },
+        { label: "Sinner J. vs Djokovic N.", tag: "DIVERGENT >15%", p1: "Sinner J.", p2: "Djokovic N.", surface: "Hard", series: "Grand Slam", odd1: 1.60, odd2: 2.42, lgbP1: 0.684, lrP1: 0.512, legend: false },
+        { label: "Alcaraz C. vs Sinner J.", tag: "+4.6% EV", p1: "Alcaraz C.", p2: "Sinner J.", surface: "Hard", series: "Masters Cup", odd1: 1.62, odd2: 2.35, lgbP1: 0.648, lrP1: 0.614, legend: false }
+      ];
+
+      let arenaSpec = { ...ARENA_PRESETS[2] };
+
+      function populateArenaSelects() {
+        const includeLegends = document.getElementById("arenaLegendsToggle").checked;
+        document.getElementById("legendsToggleLabel").classList.toggle("is-on", includeLegends);
+        const pool = Object.keys(PLAYERS).filter((name) => includeLegends || !PLAYERS[name].legend);
+
+        const sel1 = document.getElementById("arenaP1");
+        const sel2 = document.getElementById("arenaP2");
+        const prev1 = pool.includes(arenaSpec.p1) ? arenaSpec.p1 : pool[0];
+        const prev2 = pool.includes(arenaSpec.p2) && arenaSpec.p2 !== prev1 ? arenaSpec.p2 : (pool.find((n) => n !== prev1) || pool[0]);
+
+        const buildOpts = (selected) => pool.map((n) =>
+          `<option value="${esc(n)}" ${n === selected ? "selected" : ""}>${esc(n)}${PLAYERS[n].legend ? " ★" : ""}</option>`
+        ).join("");
+
+        sel1.innerHTML = buildOpts(prev1);
+        sel2.innerHTML = buildOpts(prev2);
+        arenaSpec.p1 = prev1;
+        arenaSpec.p2 = prev2;
+      }
+
+      function syncArenaInputsFromSpec() {
+        if (PLAYERS[arenaSpec.p1]?.legend || PLAYERS[arenaSpec.p2]?.legend) {
+          document.getElementById("arenaLegendsToggle").checked = true;
+        }
+        populateArenaSelects();
+        document.getElementById("arenaP1").value = arenaSpec.p1;
+        document.getElementById("arenaP2").value = arenaSpec.p2;
+        document.getElementById("arenaSurf").value = arenaSpec.surface;
+        document.getElementById("arenaSeries").value = arenaSpec.series;
+        document.getElementById("arenaO1").value = arenaSpec.odd1 ?? "";
+        document.getElementById("arenaO2").value = arenaSpec.odd2 ?? "";
+      }
+
+      function renderArenaPresets() {
+        const wrap = document.getElementById("arenaPresets");
+        wrap.innerHTML = ARENA_PRESETS.map((p, idx) => {
+          const isSel = p.p1 === arenaSpec.p1 && p.p2 === arenaSpec.p2 && p.surface === arenaSpec.surface;
+          return `
+            <button class="preset-btn ${isSel ? "is-selected" : ""}" type="button" data-preset="${idx}">
+              <span>${esc(p.label)}</span>
+              <span class="metric-tabular inline-pink">${esc(p.tag)}</span>
+            </button>
+          `;
+        }).join("");
+
+        wrap.querySelectorAll(".preset-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const p = ARENA_PRESETS[Number(btn.getAttribute("data-preset"))];
+            arenaSpec = { ...p };
+            syncArenaInputsFromSpec();
+            renderArenaView();
+          });
+        });
+      }
+
+      function updateArenaCollapsedSummary() {
+        const el = document.getElementById("arenaCollapsedSummary");
+        if (!el) return;
+        const oddsPart = arenaSpec.odd1 && arenaSpec.odd2
+          ? ` \u2022 Odds ${arenaSpec.odd1.toFixed(2)} / ${arenaSpec.odd2.toFixed(2)}`
+          : "";
+        el.innerHTML = `Active: <strong style="color:var(--ink-deep);">${esc(arenaSpec.p1)} vs ${esc(arenaSpec.p2)}</strong> \u2022 ${esc(arenaSpec.surface)} \u2022 ${esc(arenaSpec.series)}${esc(oddsPart)}`;
+      }
+
+      function renderArenaView() {
+        renderArenaPresets();
+        updateArenaCollapsedSummary();
+        renderUnifiedDossier(document.getElementById("arenaDossierMount"), arenaSpec);
+      }
+
+      function readArenaControlsAndAnalyze() {
+        const p1 = document.getElementById("arenaP1").value;
+        const p2 = document.getElementById("arenaP2").value;
+        const surface = document.getElementById("arenaSurf").value;
+        const series = document.getElementById("arenaSeries").value;
+        const o1Val = parseFloat(document.getElementById("arenaO1").value);
+        const o2Val = parseFloat(document.getElementById("arenaO2").value);
+
+        // Preserve calibrated preset probabilities if matchup & surface match preset exactly
+        const matchedPreset = ARENA_PRESETS.find((pr) => pr.p1 === p1 && pr.p2 === p2 && pr.surface === surface && pr.series === series);
+        arenaSpec = {
+          p1,
+          p2: p1 === p2 ? (Object.keys(PLAYERS).find((k) => k !== p1) || p2) : p2,
+          surface,
+          series,
+          odd1: Number.isFinite(o1Val) && o1Val > 1 ? o1Val : null,
+          odd2: Number.isFinite(o2Val) && o2Val > 1 ? o2Val : null,
+          lgbP1: matchedPreset ? matchedPreset.lgbP1 : undefined,
+          lrP1: matchedPreset ? matchedPreset.lrP1 : undefined
+        };
+        if (arenaSpec.p2 !== p2) document.getElementById("arenaP2").value = arenaSpec.p2;
+        renderArenaView();
+      }
+
+      /* =====================================================================
+         10. View 3B (#backtracker): Cascading Historical Backtracker
+         ===================================================================== */
+      function populateBacktrackerSplits() {
+        const splitSel = document.getElementById("btSplit");
+        const splits = Object.keys(BACKTRACKER_DATA);
+        splitSel.innerHTML = splits.map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join("");
+        populateBacktrackerTournaments();
+      }
+
+      function populateBacktrackerTournaments() {
+        const splitName = document.getElementById("btSplit").value;
+        const splitObj = BACKTRACKER_DATA[splitName];
+        document.getElementById("btSplitMeta").textContent = splitObj.meta;
+        const tSel = document.getElementById("btTournament");
+        const tournaments = Object.keys(splitObj.tournaments);
+        tSel.innerHTML = tournaments.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join("");
+        populateBacktrackerMatches();
+      }
+
+      function populateBacktrackerMatches() {
+        const splitName = document.getElementById("btSplit").value;
+        const tName = document.getElementById("btTournament").value;
+        const matches = BACKTRACKER_DATA[splitName].tournaments[tName] || [];
+        const mSel = document.getElementById("btMatch");
+        mSel.innerHTML = matches.map((m) => `<option value="${esc(m.id)}">${esc(m.label)}</option>`).join("");
+        renderBacktrackerView();
+      }
+
+      function renderBacktrackerView() {
+        const splitName = document.getElementById("btSplit").value;
+        const tName = document.getElementById("btTournament").value;
+        const mId = document.getElementById("btMatch").value;
+        const matches = BACKTRACKER_DATA[splitName].tournaments[tName] || [];
+        const m = matches.find((item) => item.id === mId) || matches[0];
+        if (!m) return;
+
+        const btSummaryEl = document.getElementById("btCollapsedSummary");
+        if (btSummaryEl) {
+          btSummaryEl.innerHTML = `Active: <strong style="color:var(--ink-deep);">${esc(tName)}</strong> \u2022 ${esc(m.label)}`;
+        }
+
+        const bannerEl = document.getElementById("btHistoricalBanner");
+        const verdictBadge = m.accurate
+          ? `<span class="badge badge-ev">PREDICTION ACCURATE</span>`
+          : `<span class="badge badge-fade">UPSET</span>`;
+        bannerEl.innerHTML = `
+          <div class="historical-banner ${m.accurate ? "is-accurate" : "is-upset"}">
+            <div>
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                ${verdictBadge}
+                <strong style="color:var(--ink-deep);">${esc(tName)} &bull; ${esc(m.label)}</strong>
+              </div>
+              <div class="meta-caption" style="margin-top:4px;">
+                Actual Winner: <strong style="color:var(--ink-deep);">${esc(m.actualWinner)}</strong> &bull;
+                Final Score: <span class="metric-tabular">${esc(m.scoreline)}</span>
+              </div>
+            </div>
+            <div class="meta-caption metric-tabular" style="text-align:right;">
+              Closing Odds: ${m.odd1.toFixed(2)} / ${m.odd2.toFixed(2)}
+            </div>
+          </div>
+        `;
+        renderUnifiedDossier(document.getElementById("btDossierMount"), m);
+      }
+
+      /* =====================================================================
+         11. Hash SPA Router (#slate, #match/<id>, #arena, #backtracker)
+         ===================================================================== */
+      function parseHash() {
+        const raw = (window.location.hash || "#slate").replace(/^#/, "");
+        if (raw.startsWith("match/")) {
+          return { route: "match", matchId: raw.slice("match/".length) };
+        }
+        if (raw === "arena") return { route: "arena" };
+        if (raw === "backtracker") return { route: "backtracker" };
+        return { route: "slate" };
+      }
+
+      function syncRoute() {
+        const { route, matchId } = parseHash();
+        document.getElementById("view-slate").classList.toggle("is-hidden", route !== "slate");
+        document.getElementById("view-match").classList.toggle("is-hidden", route !== "match");
+        document.getElementById("view-arena").classList.toggle("is-hidden", route !== "arena");
+        document.getElementById("view-backtracker").classList.toggle("is-hidden", route !== "backtracker");
+
+        // Highlight active top mode pill (#match highlights Today's Slate context)
+        const navActive = route === "match" ? "slate" : route;
+        document.querySelectorAll("header .mode-pill").forEach((btn) => {
+          btn.classList.toggle("is-active", btn.getAttribute("data-route") === navActive);
+        });
+
+        if (route === "slate") {
+          renderSlateView();
+        } else if (route === "match") {
+          renderMatchView(matchId);
+        } else if (route === "arena") {
+          renderArenaView();
+        } else if (route === "backtracker") {
+          renderBacktrackerView();
+        }
+      }
+
+      /* =====================================================================
+         12. Event Listeners & Boot
+         ===================================================================== */
+      document.querySelectorAll("header .mode-pill").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          window.location.hash = "#" + btn.getAttribute("data-route");
+        });
+      });
+
+      document.querySelectorAll("#seriesFilterPills .mode-pill").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          slateState.series = btn.getAttribute("data-series");
+          document.querySelectorAll("#seriesFilterPills .mode-pill").forEach((b) => b.classList.toggle("is-active", b === btn));
+          renderSlateView();
+        });
+      });
+
+      document.getElementById("valueEdgeToggle").addEventListener("change", (ev) => {
+        slateState.valueOnly = ev.target.checked;
+        document.getElementById("valueEdgeToggleLabel").classList.toggle("is-on", slateState.valueOnly);
+        renderSlateView();
+      });
+
+      document.getElementById("fallbackToggle").addEventListener("change", (ev) => {
+        slateState.simulateFallback = ev.target.checked;
+        document.getElementById("fallbackToggleLabel").classList.toggle("is-on", slateState.simulateFallback);
+        renderSlateView();
+      });
+
+      document.getElementById("btnBackToSlate").addEventListener("click", () => {
+        window.location.hash = "#slate";
+      });
+
+      document.getElementById("btnOpenInWorkbench").addEventListener("click", () => {
+        arenaSpec = {
+          p1: currentMatchSpec.p1,
+          p2: currentMatchSpec.p2,
+          surface: currentMatchSpec.surface,
+          series: currentMatchSpec.series,
+          odd1: currentMatchSpec.odd1,
+          odd2: currentMatchSpec.odd2,
+          lgbP1: currentMatchSpec.lgbP1,
+          lrP1: currentMatchSpec.lrP1
+        };
+        syncArenaInputsFromSpec();
+        window.location.hash = "#arena";
+      });
+
+      document.getElementById("arenaLegendsToggle").addEventListener("change", () => {
+        populateArenaSelects();
+      });
+
+      document.getElementById("arenaSwapBtn").addEventListener("click", () => {
+        const s1 = document.getElementById("arenaP1");
+        const s2 = document.getElementById("arenaP2");
+        const o1 = document.getElementById("arenaO1");
+        const o2 = document.getElementById("arenaO2");
+        const tmpP = s1.value;
+        s1.value = s2.value;
+        s2.value = tmpP;
+        const tmpO = o1.value;
+        o1.value = o2.value;
+        o2.value = tmpO;
+        readArenaControlsAndAnalyze();
+      });
+
+      function bindRailToggle(gridId, btnId, showLabel, hideLabel) {
+        const grid = document.getElementById(gridId);
+        const btn = document.getElementById(btnId);
+        if (!grid || !btn) return;
+        btn.addEventListener("click", () => {
+          const collapsed = grid.classList.toggle("is-rail-collapsed");
+          btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+          btn.textContent = collapsed ? showLabel : hideLabel;
+        });
+      }
+
+      bindRailToggle("arenaWorkbenchGrid", "arenaRailToggleBtn", "\u2630 Show Player & Matchup Controls", "\u00d7 Hide Matchup Sidebar");
+      bindRailToggle("btWorkbenchGrid", "btRailToggleBtn", "\u2630 Show Archive Selectors", "\u00d7 Hide Archive Selectors");
+
+      document.getElementById("arenaAnalyzeBtn").addEventListener("click", readArenaControlsAndAnalyze);
+
+      document.getElementById("btSplit").addEventListener("change", populateBacktrackerTournaments);
+      document.getElementById("btTournament").addEventListener("change", populateBacktrackerMatches);
+      document.getElementById("btMatch").addEventListener("change", renderBacktrackerView);
+      document.getElementById("btInspectBtn").addEventListener("click", renderBacktrackerView);
+
+      window.addEventListener("hashchange", syncRoute);
+
+      // Initialize selectors and initial route
+      syncArenaInputsFromSpec();
+      populateBacktrackerSplits();
+      if (!window.location.hash) {
+        history.replaceState(null, "", "#slate");
+      }
+      syncRoute();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Option 2: Command Workbench — baseline.ml</title>
+  <link rel="stylesheet" href="eval-risograph.css">
+  <style>
+    .workbench-grid {
+      display: grid;
+      grid-template-columns: 310px 1fr;
+      gap: 22px;
+      align-items: start;
+      margin-top: 22px;
+    }
+    .rail-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      position: sticky;
+      top: 16px;
+    }
+    .canvas-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .field-lbl {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink-muted);
+      margin-bottom: 4px;
+    }
+    .dual-model-strip {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    details.riso-card summary {
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 700;
+      color: var(--ink-deep);
+    }
+    details.riso-card summary::-webkit-details-marker { display: none; }
+    .slate-mini-item {
+      width: 100%;
+      text-align: left;
+      background: var(--bg-recessed);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 8px 10px;
+      cursor: pointer;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      color: var(--ink-deep);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .slate-mini-item.is-selected {
+      border-color: var(--accent-signal);
+      background: var(--accent-wash);
+    }
+    @media (max-width: 920px) {
+      .workbench-grid, .dual-model-strip { grid-template-columns: 1fr; }
+      .rail-stack { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <svg class="paper-grain-overlay" aria-hidden="true">
+    <filter id="risoGrain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch" />
+    </filter>
+    <rect width="100%" height="100%" filter="url(#risoGrain)" />
+  </svg>
+
+  <div class="eval-ribbon">
+    <strong>OPTION 2: TWO-COLUMN WORKBENCH (Sticky Control Rail)</strong>
+    <nav class="eval-nav">
+      <a class="eval-link" href="index.html">0. Overview</a>
+      <a class="eval-link" href="unified-dossier.html#slate">Unified Synthesis</a>
+      <a class="eval-link" href="option-1-editorial.html">Option 1: Editorial Broadsheet</a>
+      <a class="eval-link is-current" href="option-2-workbench.html">Option 2: Command Workbench</a>
+      <a class="eval-link" href="option-3-slate-first.html">Option 3: Slate-First Zine</a>
+    </nav>
+  </div>
+
+  <main class="page-shell">
+    <header class="riso-header">
+      <div class="wordmark-lockup">
+        <span class="wordmark">baseline<span class="focal-dot">.</span>ml</span>
+        <span class="wordmark-tag">Two-Column Matchup Workbench</span>
+      </div>
+      <nav class="mode-pills">
+        <button class="mode-pill is-active" type="button">H2H Arena</button>
+        <button class="mode-pill" type="button">Schedule</button>
+        <button class="mode-pill" type="button">Backtracker</button>
+      </nav>
+    </header>
+
+    <div class="workbench-grid">
+      <!-- Left Sticky Control Rail -->
+      <aside class="rail-stack">
+        <section class="riso-card">
+          <h2 class="card-title-sm" style="margin-bottom:12px;">Matchup Parameters</h2>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <div>
+              <label class="field-lbl" for="wbP1">Player 1</label>
+              <select id="wbP1" class="riso-select"><option selected>Alcaraz C.</option><option>Sinner J.</option></select>
+            </div>
+            <div>
+              <label class="field-lbl" for="wbP2">Player 2</label>
+              <select id="wbP2" class="riso-select"><option selected>Sinner J.</option><option>Alcaraz C.</option></select>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+              <div>
+                <label class="field-lbl" for="wbSurf">Surface</label>
+                <select id="wbSurf" class="riso-select"><option>Hard</option><option>Clay</option></select>
+              </div>
+              <div>
+                <label class="field-lbl" for="wbSer">Series</label>
+                <select id="wbSer" class="riso-select"><option>Grand Slam</option><option>ATP500</option></select>
+              </div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+              <div>
+                <label class="field-lbl" for="wbO1">P1 Odds</label>
+                <input id="wbO1" class="riso-input metric-tabular" value="1.62">
+              </div>
+              <div>
+                <label class="field-lbl" for="wbO2">P2 Odds</label>
+                <input id="wbO2" class="riso-input metric-tabular" value="2.35">
+              </div>
+            </div>
+            <button class="btn-primary-signal" type="button" style="width:100%; margin-top:4px;">Analyze Matchup</button>
+          </div>
+        </section>
+
+        <section class="riso-card">
+          <h2 class="card-title-sm" style="margin-bottom:8px;">Today's Quick Slate</h2>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <button class="slate-mini-item is-selected" type="button">
+              <span>Alcaraz vs Sinner</span>
+              <span class="metric-tabular inline-pink">+4.6% EV</span>
+            </button>
+            <button class="slate-mini-item" type="button">
+              <span>Zverev vs Fritz</span>
+              <span class="metric-tabular" style="color:var(--ink-muted);">54% / 46%</span>
+            </button>
+            <button class="slate-mini-item" type="button">
+              <span>Medvedev vs Rune</span>
+              <span class="metric-tabular inline-fade">-2.1% Fade</span>
+            </button>
+          </div>
+        </section>
+      </aside>
+
+      <!-- Right Calm Diagnostic Canvas -->
+      <section class="canvas-stack">
+        <div style="padding: 8px 0 4px;">
+          <h1 class="hero-display-title" style="font-size:2.25rem; margin-bottom:6px;">Matchup dossier<span class="focal-accent">.</span></h1>
+          <p class="meta-caption">All primary telemetry fits above the fold; secondary deep-dives collapse cleanly into drawers.</p>
+        </div>
+
+        <article class="riso-card print-plate">
+          <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:14px;">
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <span class="badge badge-hard">Hard</span>
+              <span class="badge badge-neutral">Grand Slam</span>
+              <span class="badge badge-ev">VALUE +4.6%</span>
+            </div>
+            <span class="meta-caption metric-tabular">1/4 Kelly: 1.85%</span>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
+            <div>
+              <strong style="font-size:18px; color:var(--ink-deep);">Alcaraz C.</strong>
+              <span class="metric-tabular inline-pink" style="font-size:22px; margin-left:8px;">64.8%</span>
+            </div>
+            <div>
+              <span class="metric-tabular" style="font-size:22px; color:var(--ink-muted); margin-right:8px;">35.2%</span>
+              <strong style="font-size:18px; color:var(--ink-deep);">Sinner J.</strong>
+            </div>
+          </div>
+
+          <div class="prob-track">
+            <div class="prob-fill-favored" style="width:64.8%"></div>
+            <div class="prob-fill-underdog" style="width:35.2%"></div>
+          </div>
+
+          <div class="dual-model-strip" style="margin-top:16px;">
+            <div class="riso-well">
+              <div class="meta-caption">Dual-Model Split</div>
+              <div class="metric-tabular" style="font-size:14px; font-weight:700; margin-top:4px;">
+                LGBM 64.8% &bull; LogReg 61.4% (&Delta; 3.4%)
+              </div>
+            </div>
+            <div class="riso-well">
+              <div class="meta-caption">Power De-Vig Market</div>
+              <div class="metric-tabular" style="font-size:14px; font-weight:700; margin-top:4px;">
+                Implied 60.2% &bull; Overround 1.043
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Collapsible Secondary Drawers -->
+        <details class="riso-card" open>
+          <summary>
+            <span>Top TreeSHAP Drivers (5 of 31)</span>
+            <span class="meta-caption">Click to collapse</span>
+          </summary>
+          <div style="margin-top:12px; font-size:13px;">
+            <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border-subtle);">
+              <span>Short Form (10M Winrate)</span>
+              <span class="metric-tabular inline-pink">+0.184 (Alcaraz)</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border-subtle);">
+              <span>Hard Surface Winrate</span>
+              <span class="metric-tabular inline-pink">+0.119 (Alcaraz)</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; padding:6px 0;">
+              <span>14-Day Match Load</span>
+              <span class="metric-tabular" style="color:var(--ink-muted);">-0.072 (Sinner)</span>
+            </div>
+          </div>
+        </details>
+
+        <details class="riso-card">
+          <summary>
+            <span>Scouting Cards &amp; 6-Axis Radar Duel</span>
+            <span class="meta-caption">Collapsed by default</span>
+          </summary>
+          <p class="meta-caption" style="margin-top:10px;">Expands on click to reveal side-by-side OVR cards and 6-axis scouting polygon.</p>
+        </details>
+
+        <details class="riso-card">
+          <summary>
+            <span>Full 31-Feature Predictor Matrix</span>
+            <span class="meta-caption">Collapsed by default</span>
+          </summary>
+          <p class="meta-caption" style="margin-top:10px;">Expands on click to reveal filterable 31-feature LightGBM vs Logistic Regression table.</p>
+        </details>
+      </section>
+    </div>
+  </main>
+</body>
+</html>
