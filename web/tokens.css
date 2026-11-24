@@ -1,0 +1,66 @@
+/* src/styles/tokens.css — baseline.ml Locked Risograph Option A System */
+
+@font-face {
+  font-family: 'Sogea';
+  src: url('/fonts/Sogea-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* =========================================================
+     1. 60% CREAM PAPER — Canvas, Cards & Recessed Wells
+     ========================================================= */
+  --bg-canvas: #F8DBC1;          /* Primary uncoated cream stock */
+  --bg-surface: #FCE7D4;         /* Elevated cards & print plates */
+  --bg-recessed: #EFCCA9;        /* Probability tracks, inputs, pill wells */
+  --border-subtle: #E2BE9C;      /* Hairline structural dividers */
+
+  /* =========================================================
+     2. 30% RISO TEAL — Structure, Primary Ink & Wireframes
+     ========================================================= */
+  --ink-primary: #1D646C;        /* Primary ink, borders, court schematics */
+  --ink-deep: #13454B;           /* High-density tabular numbers & card titles */
+  --ink-muted: #3E7D84;          /* Axis ticks, timestamps, secondary labels */
+  --ink-wash: rgba(29, 100, 108, 0.10);
+
+  /* =========================================================
+     3. 10% FLUORESCENT PINK — Quantitative Signal & Primary CTA
+     ========================================================= */
+  --accent-signal: #EA4F88;      /* CTAs, favored prob bars, +EV tags, hotspots */
+  --accent-text: #C43269;        /* WCAG AA accessible inline pink on cream */
+  --accent-wash: rgba(234, 79, 136, 0.14);
+
+  /* =========================================================
+     4. DOMAIN SEMANTICS — Court Surfaces & Edge States
+     ========================================================= */
+  --surface-hard: #246B9E;
+  --surface-clay: #B85335;
+  --surface-grass: #2B7A4B;
+  --state-fade: #B54434;         /* Negative EV / market fade (never pure red) */
+
+  /* =========================================================
+     5. LOCKED 3-TIER TYPOGRAPHY STACK
+     ========================================================= */
+  --font-display: 'Sogea', 'Space Grotesk', sans-serif;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* =========================================================
+     6. RISOGRAPH TEXTURE & MESH GRADIENTS
+     ========================================================= */
+  --mesh-print-plate:
+    radial-gradient(circle at 82% 20%, rgba(234, 79, 136, 0.17) 0%, transparent 48%),
+    radial-gradient(circle at 18% 85%, rgba(29, 100, 108, 0.14) 0%, transparent 52%),
+    linear-gradient(155deg, #FCE7D4 0%, #F8DBC1 100%);
+  --shadow-riso-card: 4px 4px 0px var(--ink-primary);
+}
+
+/* Global Quantitative Numeric Discipline */
+.metric-tabular,
+[data-metric] {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
