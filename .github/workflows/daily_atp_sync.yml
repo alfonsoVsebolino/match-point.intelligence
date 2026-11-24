@@ -81,8 +81,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           for path in \
-            test_features.csv \
-            match_scores.csv \
+            data/test_features.csv \
+            data/match_scores.csv \
             data/sync_state.json \
             data/daily_predictions_latest.json \
             data/daily_predictions_latest.csv \

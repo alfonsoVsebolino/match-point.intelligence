@@ -1,6 +1,6 @@
 """Thread-safe structured prediction service delegating directly to atp_engine."""
 
-import atp_engine as eng
+from src import atp_engine as eng
 
 
 def predict(

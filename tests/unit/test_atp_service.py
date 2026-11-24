@@ -2,8 +2,7 @@ from concurrent.futures import ThreadPoolExecutor
 import math
 import pytest
 from pipeline import atp_data
-import atp_engine
-import atp_service
+from src import atp_engine, atp_service
 
 P1, P2, SURF, SER = "Alcaraz C.", "Sinner J.", "Hard", "Grand Slam"
 SPLIT = atp_data.SPLIT_CHOICES[0]

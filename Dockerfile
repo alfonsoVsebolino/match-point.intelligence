@@ -13,10 +13,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY server.py atp_engine.py atp_service.py atp_cards.py ./
+COPY src/ ./src/
 COPY pipeline/ ./pipeline/
 COPY models/ ./models/
-COPY train_features.csv test_features.csv match_scores.csv ./
+COPY data/train_features.csv data/test_features.csv data/match_scores.csv ./data/
 COPY web/ ./web/
 
 RUN groupadd --system appuser \
@@ -31,4 +31,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD python -c "import os, sys, urllib.request; port = os.environ.get('PORT', '8080'); resp = urllib.request.urlopen(f'http://127.0.0.1:{port}/healthz', timeout=3); sys.exit(0 if resp.status == 200 else 1)"
 
-CMD ["sh", "-c", "exec uvicorn server:app --host 0.0.0.0 --port ${PORT:-8080}"]
+CMD ["sh", "-c", "exec uvicorn src.server:app --host 0.0.0.0 --port ${PORT:-8080}"]

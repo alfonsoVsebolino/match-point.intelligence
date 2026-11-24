@@ -4,8 +4,8 @@ import sys
 import threading
 import time
 import pytest
-import atp_engine
-from atp_engine import DEFAULT_P1, DEFAULT_P2, active_players, all_players
+from src import atp_engine
+from src.atp_engine import DEFAULT_P1, DEFAULT_P2, active_players, all_players
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -13,13 +13,13 @@ def test_no_gradio_imported():
     cmd = [
         sys.executable,
         "-c",
-        "import tk_app, sys; assert 'gradio' not in sys.modules, 'gradio was unexpectedly imported'"
+        "from app import tk_app; import sys; assert 'gradio' not in sys.modules, 'gradio was unexpectedly imported'"
     ]
     res = subprocess.run(cmd, cwd=str(REPO_ROOT), capture_output=True, text=True)
     assert res.returncode == 0, f"Import check failed: {res.stderr}"
 
 def test_constants_and_defaults():
-    import tk_app
+    from app import tk_app
     assert tk_app.DEFAULT_P1 == DEFAULT_P1
     assert tk_app.DEFAULT_P2 == DEFAULT_P2
     assert tk_app.DEFAULT_SURFACE == "Hard"
@@ -28,13 +28,13 @@ def test_constants_and_defaults():
     assert tk_app.SERIES_CHOICES == ["Grand Slam", "Masters 1000", "ATP500", "ATP250"]
 
 def test_resolve_swap():
-    from tk_app import resolve_swap
+    from app.tk_app import resolve_swap
     p1, p2 = resolve_swap("Alcaraz C.", "Sinner J.")
     assert p1 == "Sinner J."
     assert p2 == "Alcaraz C."
 
 def test_resolve_roster_toggle_unlock_all():
-    from tk_app import resolve_roster_toggle
+    from app.tk_app import resolve_roster_toggle
     active_subset = ["Alcaraz C.", "Sinner J."]
     all_subset = ["Agassi A.", "Alcaraz C.", "Sampras P.", "Sinner J."]
 
@@ -50,7 +50,7 @@ def test_resolve_roster_toggle_unlock_all():
     assert new_p2 == "Sinner J."
 
 def test_resolve_roster_toggle_lock_active_replaces_invalid():
-    from tk_app import resolve_roster_toggle
+    from app.tk_app import resolve_roster_toggle
     active_subset = ["Alcaraz C.", "Sinner J."]
     all_subset = ["Agassi A.", "Alcaraz C.", "Sampras P.", "Sinner J."]
 
@@ -66,7 +66,7 @@ def test_resolve_roster_toggle_lock_active_replaces_invalid():
     assert new_p2 == "Sinner J."
 
 def test_resolve_roster_toggle_defaults_to_engine_pools():
-    from tk_app import resolve_roster_toggle
+    from app.tk_app import resolve_roster_toggle
     pool_all, p1_all, p2_all = resolve_roster_toggle(True, DEFAULT_P1, DEFAULT_P2)
     assert pool_all == all_players
     assert p1_all == DEFAULT_P1
@@ -78,14 +78,14 @@ def test_resolve_roster_toggle_defaults_to_engine_pools():
     assert p2_act == DEFAULT_P2
 
 def test_format_error_text():
-    from tk_app import format_error_text
+    from app.tk_app import format_error_text
     assert format_error_text({"error": "Please select both Player 1 and Player 2."}) == "Please select both Player 1 and Player 2."
     assert format_error_text("Player 1 and Player 2 must be different athletes.") == "Player 1 and Player 2 must be different athletes."
     assert format_error_text({}) == ""
     assert format_error_text({"prob_lgb": 0.5}) == ""
 
 def test_compute_display_probabilities():
-    from tk_app import compute_display_probabilities
+    from app.tk_app import compute_display_probabilities
     probs = compute_display_probabilities(0.6123, 0.4567)
     assert probs["lgb_p1"] == pytest.approx(0.6123)
     assert probs["lgb_p2"] == pytest.approx(0.3877)
@@ -97,7 +97,7 @@ def test_compute_display_probabilities():
     assert probs["lr_p2_pct"] == "54.3%"
 
 def test_resolve_surface_color():
-    from tk_app import resolve_surface_color, PALETTE
+    from app.tk_app import resolve_surface_color, PALETTE
     assert resolve_surface_color("Hard") == "#38bdf8"
     assert resolve_surface_color("Clay") == "#fb923c"
     assert resolve_surface_color("Grass") == "#4ade80"
@@ -105,7 +105,7 @@ def test_resolve_surface_color():
     assert resolve_surface_color("Unknown") == PALETTE["accent"]
 
 def test_format_symmetry_text():
-    from tk_app import format_symmetry_text
+    from app.tk_app import format_symmetry_text
     sym_zero = format_symmetry_text(0.0123, 0.0)
     assert "Δ < 1e-5" in sym_zero
     assert "Raw Δ: 1.2%" in sym_zero
@@ -115,7 +115,7 @@ def test_format_symmetry_text():
     assert "Raw Δ: 4.6%" in sym_nonzero
 
 def test_resolve_divergence_status():
-    from tk_app import resolve_divergence_status
+    from app.tk_app import resolve_divergence_status
     # Hidden when delta <= 0.15 and not is_divergent
     vis, msg = resolve_divergence_status(False, 0.12)
     assert vis is False
@@ -135,7 +135,7 @@ def test_resolve_divergence_status():
     assert "10.0%" in msg_flag
 
 def test_format_key_stats():
-    from tk_app import format_key_stats
+    from app.tk_app import format_key_stats
     stats_p1_fav = {
         "rank_diff": -2.0,
         "surface_winrate_diff": 0.145,
@@ -182,7 +182,7 @@ def test_format_key_stats():
 
 def test_resolve_split_change():
     from pipeline.atp_data import SPLIT_CHOICES
-    from tk_app import resolve_split_change
+    from app.tk_app import resolve_split_change
     tourns, first_tourn, matches, first_match_id = resolve_split_change(SPLIT_CHOICES[0])
     assert isinstance(tourns, list) and len(tourns) > 0
     assert first_tourn == tourns[0]
@@ -198,7 +198,7 @@ def test_resolve_split_change():
 
 def test_resolve_tournament_change():
     from pipeline.atp_data import SPLIT_CHOICES, get_tournaments_for_split
-    from tk_app import resolve_tournament_change
+    from app.tk_app import resolve_tournament_change
     tourns = get_tournaments_for_split(SPLIT_CHOICES[0])
     matches, first_match_id = resolve_tournament_change(SPLIT_CHOICES[0], tourns[0])
     assert isinstance(matches, list) and len(matches) > 0
@@ -210,7 +210,7 @@ def test_resolve_tournament_change():
     assert mid_empty == ""
 
 def test_evaluate_historical_outcome():
-    from tk_app import evaluate_historical_outcome
+    from app.tk_app import evaluate_historical_outcome
     # 1. P1 favored, P1 wins -> Accurate
     res1 = evaluate_historical_outcome("Alcaraz C.", "Alcaraz C.", 0.68)
     assert res1["correct"] is True
@@ -240,7 +240,7 @@ def test_evaluate_historical_outcome():
     assert res4["icon"] == "[X]"
 
 def test_format_bm_odds():
-    from tk_app import format_bm_odds
+    from app.tk_app import format_bm_odds
     assert format_bm_odds(None) is None
     res = format_bm_odds(0.625)
     assert res == {"bm_p1_pct": "62.5%", "bm_p2_pct": "37.5%"}
@@ -255,7 +255,7 @@ def test_gui_smoke_and_acceptance_criteria():
         pytest.skip("No graphical display available for Tk smoke test")
 
     try:
-        from tk_app import App, DEFAULT_P1, DEFAULT_P2, SURFACE_COLORS
+        from app.tk_app import App, DEFAULT_P1, DEFAULT_P2, SURFACE_COLORS
         app = App(root)
 
         # Baseline checks
@@ -486,7 +486,7 @@ def test_gui_smoke_and_acceptance_criteria():
 def test_readme_launch_docs():
     with open(REPO_ROOT / "README.md", "r", encoding="utf-8") as f:
         content = f.read()
-    assert "python tk_app.py" in content
+    assert "python -m app.tk_app" in content
     assert "python3-tk" in content
 
 
@@ -498,7 +498,7 @@ def test_initial_prediction_on_startup():
         pytest.skip("No graphical display available for Tk smoke test")
 
     try:
-        from tk_app import App, DEFAULT_P1, DEFAULT_P2, DEFAULT_SURFACE, DEFAULT_SERIES
+        from app.tk_app import App, DEFAULT_P1, DEFAULT_P2, DEFAULT_SURFACE, DEFAULT_SERIES
         app = App(root, init_predict=True)
         # Wait for the startup prediction scheduled via root.after(50, ...)
         app.wait_for_prediction()
@@ -524,8 +524,8 @@ def test_async_predict_buttons_state_and_completion(monkeypatch):
         pytest.skip("No graphical display available for Tk smoke test")
 
     try:
-        import atp_service
-        from tk_app import App
+        from src import atp_service
+        from app.tk_app import App
         app = App(root, init_predict=False)
 
         assert str(app.predict_btn["state"]) == "normal"
@@ -577,8 +577,8 @@ def test_async_inspect_buttons_state_and_completion(monkeypatch):
         pytest.skip("No graphical display available for Tk smoke test")
 
     try:
-        import atp_service
-        from tk_app import App
+        from src import atp_service
+        from app.tk_app import App
         app = App(root, init_predict=False)
 
         assert str(app.predict_btn["state"]) == "normal"
@@ -628,8 +628,8 @@ def test_prediction_exception_surfaces_as_banner_without_crash(monkeypatch):
         pytest.skip("No graphical display available for Tk smoke test")
 
     try:
-        import atp_service
-        from tk_app import App
+        from src import atp_service
+        from app.tk_app import App
         app = App(root, init_predict=False)
 
         def failing_predict(*args, **kwargs):
@@ -656,8 +656,8 @@ def test_inspect_exception_surfaces_as_banner_without_crash(monkeypatch):
         pytest.skip("No graphical display available for Tk smoke test")
 
     try:
-        import atp_service
-        from tk_app import App
+        from src import atp_service
+        from app.tk_app import App
         app = App(root, init_predict=False)
 
         def failing_inspect(*args, **kwargs):

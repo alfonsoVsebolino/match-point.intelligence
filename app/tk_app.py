@@ -1,13 +1,19 @@
 """MatchPoint.intelligence dedicated Tkinter desktop application."""
 
+import os
 import sys
 import threading
 import time
 import tkinter as tk
 from tkinter import ttk
+
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
 from pipeline.atp_data import SPLIT_CHOICES, get_tournaments_for_split, get_matches_for_tournament
-from atp_engine import DEFAULT_P1, DEFAULT_P2, active_players, all_players
-import atp_service
+from src.atp_engine import DEFAULT_P1, DEFAULT_P2, active_players, all_players
+from src import atp_service
 
 # ---------------------------------------------------------------------------
 # Constants & Choices

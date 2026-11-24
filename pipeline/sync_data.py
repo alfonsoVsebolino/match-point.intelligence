@@ -9,7 +9,7 @@ import pandas as pd
 
 DATASET_HANDLE = "dissfya/atp-tennis-2000-2023daily-pull"
 CUTOFF_YEAR = 2023
-OUTPUT_DIR = "."
+OUTPUT_DIR = "data"
 SHORT_WINDOW = 10
 H2H_COLD_START = 0.5
 

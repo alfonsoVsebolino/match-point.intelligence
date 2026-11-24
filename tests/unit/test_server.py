@@ -7,8 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from pipeline import atp_daily_sync, atp_data
-import atp_engine
-import server
+from src import atp_engine, server
 
 client = TestClient(server.app)
 

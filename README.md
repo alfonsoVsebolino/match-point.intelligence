@@ -57,16 +57,16 @@ The primary web interface (`web/`) pairs an ESPN-inspired dark obsidian scoreboa
 pip install -r requirements.txt
 
 # Start the FastAPI + Uvicorn broadcast server
-uvicorn server:app --host 0.0.0.0 --port 8080
+uvicorn src.server:app --host 0.0.0.0 --port 8080
 # Or:
-python server.py
+python src/server.py
 ```
 
 Open `http://127.0.0.1:8080` in your browser.
 
 > **Note on `scikit-learn`**: `requirements.txt` pins `scikit-learn>=1.6.0,<1.7.0` (`1.6.1`) for clean deserialization of `models/atp_inference_bundle.joblib`.
 
-### HTTP / REST API Endpoints (`server.py`)
+### HTTP / REST API Endpoints (`src/server.py`)
 
 | Method | Path | Description |
 | :--- | :--- | :--- |
@@ -87,7 +87,7 @@ The production container (`Dockerfile` + `.dockerignore`) is designed for **Goog
 
 - **Base image**: `python:3.11-slim` with `libgomp1` (for LightGBM) and `ca-certificates`.
 - **Stateless runtime**: Runs as non-root user `appuser` with writable `/app/data/predictions_history` so optional runtime schedule refreshes work cleanly without root privileges, while handling unseeded `data/` directories gracefully.
-- **Dynamic `$PORT` binding**: Executes `uvicorn server:app --host 0.0.0.0 --port ${PORT:-8080}` (default `8080`).
+- **Dynamic `$PORT` binding**: Executes `uvicorn src.server:app --host 0.0.0.0 --port ${PORT:-8080}` (default `8080`).
 - **Built-in Healthcheck**: Python `urllib.request` probe targeting `http://127.0.0.1:${PORT:-8080}/healthz` (no `curl` needed).
 
 ### Local Docker Build & Run
@@ -118,7 +118,7 @@ gcloud run deploy matchpoint-intelligence \
 Heavy batch workflows are intentionally decoupled from the Cloud Run request path and executed out-of-band by the **Hydrogen Worker** (`pipeline/atp_daily_sync.py` + `.github/workflows/daily_atp_sync.yml`, or an equivalent Cloud Run Job):
 
 1. **Kaggle Daily Pull**: Downloads the unversioned `dissfya/atp-tennis-2000-2023daily-pull` release via `kagglehub` (skipping feature recompute automatically if SHA-256 is unchanged).
-2. **Rolling Feature & State Cache Refresh**: Recomputes leakage-free rolling features (`test_features.csv`, `match_scores.csv`) and updates `data/player_state_cache.joblib` while keeping trained model weights (`models/atp_inference_bundle.joblib`) fixed.
+2. **Rolling Feature & State Cache Refresh**: Recomputes leakage-free rolling features (`data/test_features.csv`, `data/match_scores.csv`) and updates `data/player_state_cache.joblib` while keeping trained model weights (`models/atp_inference_bundle.joblib`) fixed.
 3. **Batch ESPN Schedule Predictions + Power-Method Edge/Kelly**: Fetches published ATP singles fixtures (ESPN public scoreboard API or local CSV/JSON drop-in), enforces T-30m frozen pre-match snapshots, computes Power-Method de-vigged implied probabilities and Quarter-Kelly stakes, and writes `data/daily_predictions_latest.json`, `data/daily_predictions_latest.csv`, and `data/predictions_history/predictions_YYYY-MM-DD.csv`.
 
 ### CLI Usage (`pipeline/atp_daily_sync.py`)
@@ -152,10 +152,10 @@ python pipeline/atp_daily_sync.py predict-schedule --schedule-file data/upcoming
 ### Gradio & Tkinter Consoles
 ```bash
 # Interactive Gradio web prototype
-python gradio_app.py
+python -m app.gradio_app
 
 # Native desktop Tkinter app (Linux requires: sudo apt install python3-tk)
-python tk_app.py
+python -m app.tk_app
 ```
 
 ### Kaggle ETL & Feature Engineering Notebook
@@ -198,27 +198,32 @@ Detailed derivations and protocols:
 
 ```
 .
-├── server.py                             # FastAPI + Uvicorn Cloud Run web server (/healthz, /api/v1/*)
+├── src/                                  # Cloud Run backend & inference core
+│   ├── __init__.py                       # Package marker
+│   ├── server.py                         # FastAPI + Uvicorn Cloud Run web server (/healthz, /api/v1/*)
+│   ├── atp_engine.py                     # Symmetrized inference, H2H index, TreeSHAP, Arcade cards, Power-Method & Kelly
+│   ├── atp_service.py                    # Thread-safe Python facade for web, desktop, and tests
+│   └── atp_cards.py                      # HTML diagnostic card renderer for Gradio fallback
+├── app/                                  # Standalone offline UI applications
+│   ├── __init__.py                       # Package marker
+│   ├── gradio_app.py                     # Legacy standalone Gradio console
+│   └── tk_app.py                         # Native Tkinter desktop GUI
 ├── web/                                  # Dedicated Neon ESPN Broadcast & Arcade UI static bundle
 ├── Dockerfile                            # Stateless Google Cloud Run container (python:3.11-slim)
-├── .dockerignore                         # Excludes notebooks, dev tests, docs, and raw Kaggle CSVs
+├── .dockerignore                         # Excludes notebooks, dev tests, docs, offline apps, and raw Kaggle CSVs
 ├── requirements.txt                      # Runtime & serving dependencies
-├── atp_engine.py                         # Symmetrized inference, H2H index, TreeSHAP, Arcade cards, Power-Method & Kelly
-├── atp_service.py                        # Thread-safe Python facade for web, desktop, and tests
 ├── pipeline/                             # Data pipeline, feature engineering, dataset access, and daily sync package
 │   ├── __init__.py                       # Package marker
 │   ├── atp_data.py                       # Dataset splits, sync telemetry, and schedule JSON loader
 │   ├── atp_features.py                   # Leakage-free 7-phase rolling feature & score parser
 │   ├── atp_daily_sync.py                 # Hydrogen worker: Kaggle sync, ESPN ingestion, Power-Method & Kelly batch predictions
 │   └── sync_data.py                      # Kaggle ETL & data synchronization helper
-├── atp_cards.py                          # HTML diagnostic card renderer for Gradio fallback
-├── gradio_app.py                         # Legacy standalone Gradio console
-├── tk_app.py                             # Native Tkinter desktop GUI
 ├── models/                               # Versioned trained ML model artifacts
 │   └── atp_inference_bundle.joblib       # Serialized LightGBM, LogReg, and feature encoders
-├── train_features.csv                    # 31 engineered predictors (2000–2023 training set)
-├── test_features.csv                     # 31 engineered predictors (2024–2026 holdout set)
-├── match_scores.csv                      # Historical match score strings for replay
+├── data/                                 # Feature datasets, player state cache, and daily schedule predictions
+│   ├── train_features.csv                # 31 engineered predictors (2000–2023 training set)
+│   ├── test_features.csv                 # 31 engineered predictors (2024–2026 holdout set)
+│   └── match_scores.csv                  # Historical match score strings for replay
 ├── notebooks/                            # Exploratory analysis & daily loader Jupyter notebooks
 │   ├── eda_and_feature_engineering.ipynb # 7-phase ETL, rolling metrics, and leakage-free splits notebook
 │   └── load.ipynb                        # Daily Kaggle pull & schedule prediction loader notebook

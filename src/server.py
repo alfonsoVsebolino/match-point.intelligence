@@ -5,7 +5,12 @@ from __future__ import annotations
 import asyncio
 import math
 import os
+import sys
 from typing import Any
+
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query
@@ -14,10 +19,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from pipeline import atp_daily_sync, atp_data
-import atp_engine
-import atp_service
+from src import atp_engine, atp_service
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = _REPO_ROOT
 WEB_DIR = os.path.join(BASE_DIR, "web")
 
 SURFACES_ORDER = ["Hard", "Clay", "Grass", "Carpet"]
@@ -327,4 +331,4 @@ async def refresh_live_schedule():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
-    uvicorn.run("server:app", host="0.0.0.0", port=port, reload=False)
+    uvicorn.run("src.server:app", host="0.0.0.0", port=port, reload=False)

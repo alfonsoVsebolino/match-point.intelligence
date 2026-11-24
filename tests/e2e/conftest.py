@@ -168,7 +168,7 @@ def start_ephemeral_server(
     else:
         actual_port = free_port()
 
-    server_py = REPO_ROOT / "server.py"
+    server_py = REPO_ROOT / "src" / "server.py"
     if not server_py.is_file():
         raise RuntimeError(f"server.py not found at {server_py}")
 
@@ -180,7 +180,7 @@ def start_ephemeral_server(
             sys.executable,
             "-m",
             "uvicorn",
-            "server:app",
+            "src.server:app",
             "--host",
             "127.0.0.1",
             "--port",
@@ -279,7 +279,7 @@ def create_inprocess_client(monkeypatch: pytest.MonkeyPatch | None = None):
 
     from fastapi.testclient import TestClient
 
-    server_mod = importlib.import_module("server")
+    server_mod = importlib.import_module("src.server")
     return TestClient(server_mod.app)
 
 

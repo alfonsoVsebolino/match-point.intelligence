@@ -14,8 +14,7 @@ import pytest
 import requests
 
 from pipeline import atp_daily_sync, atp_data
-import atp_engine
-import atp_service
+from src import atp_engine, atp_service
 
 from tests.e2e.conftest import (
     RADAR_AXES,
@@ -879,17 +878,23 @@ def test_f9_dockerignore_excludes_dev_artifacts_not_runtime():
         "web",
         "web/",
         "web/*",
-        "server.py",
-        "atp_engine.py",
-        "atp_service.py",
-        "atp_data.py",
-        "atp_features.py",
-        "atp_cards.py",
-        "atp_daily_sync.py",
-        "atp_inference_bundle.joblib",
-        "train_features.csv",
-        "test_features.csv",
-        "match_scores.csv",
+        "src",
+        "src/",
+        "src/*",
+        "data",
+        "data/",
+        "data/*",
+        "src/server.py",
+        "src/atp_engine.py",
+        "src/atp_service.py",
+        "src/atp_cards.py",
+        "pipeline/atp_data.py",
+        "pipeline/atp_features.py",
+        "pipeline/atp_daily_sync.py",
+        "models/atp_inference_bundle.joblib",
+        "data/train_features.csv",
+        "data/test_features.csv",
+        "data/match_scores.csv",
         "requirements.txt",
     }
     for line in lines:

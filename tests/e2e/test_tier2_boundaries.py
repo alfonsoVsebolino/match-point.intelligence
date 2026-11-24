@@ -17,7 +17,7 @@ import pytest
 import requests
 
 from pipeline import atp_daily_sync, atp_data
-import atp_engine
+from src import atp_engine
 
 from tests.e2e.conftest import (
     RADAR_AXES,

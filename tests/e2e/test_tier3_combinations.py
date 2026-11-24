@@ -506,7 +506,7 @@ def test_f5_f9_daily_sync_power_method_devig_parity(
 
 def test_f2_service_and_http_concurrent_parity(live_server: dict[str, Any]) -> None:
     """11. F2 x F2-Service: atp_service.predict & POST /api/v1/predict match under concurrent calls."""
-    import atp_service
+    from src import atp_service
 
     matchups = [
         ("Alcaraz C.", "Sinner J.", "Hard", "Grand Slam"),

@@ -1,5 +1,11 @@
+import os
+import sys
 import warnings
 warnings.filterwarnings("ignore")
+
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
 import gradio as gr
 from pipeline.atp_data import (
@@ -8,7 +14,7 @@ from pipeline.atp_data import (
     get_matches_for_tournament,
     test_df
 )
-from atp_engine import (
+from src.atp_engine import (
     active_players,
     all_players,
     DEFAULT_P1,

@@ -4,8 +4,7 @@ import pandas as pd
 import pytest
 
 from pipeline import atp_daily_sync, atp_data, atp_features
-import atp_engine
-import atp_service
+from src import atp_engine, atp_service
 
 
 def _sample_raw_matches() -> pd.DataFrame:

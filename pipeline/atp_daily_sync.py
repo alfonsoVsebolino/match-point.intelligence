@@ -35,7 +35,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-import atp_engine
+from src import atp_engine
 from pipeline import atp_data, atp_features
 DATA_DIR = os.path.join(BASE_DIR, "data")
 HISTORY_DIR = os.path.join(DATA_DIR, "predictions_history")

@@ -1,9 +1,8 @@
 import pytest
 import pandas as pd
-import gradio_app
+from app import gradio_app
 from pipeline import atp_data
-import atp_engine
-import atp_cards
+from src import atp_cards, atp_engine
 
 def test_predict_matchup_symmetry_and_diagnostics():
     p1 = "Alcaraz C."
