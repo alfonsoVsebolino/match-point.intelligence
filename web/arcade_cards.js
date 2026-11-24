@@ -1,5 +1,6 @@
 /* ==========================================================================
-   MatchPoint.intelligence — Arcade Cards, Split Banners & Tale-of-the-Tape
+   matchpoint.ml — Risograph Scouting Cards, Verdict Banners & Slate Renderers
+   Strict 60/30/10 Cream Paper / Riso Teal / Single-Favored-Pink Discipline
    ========================================================================== */
 
 (function (global) {
@@ -42,6 +43,7 @@
 
   function getStatusPillMeta(status, snapshotLocked) {
     const s = String(status || "").toLowerCase();
+    if (s.includes("fallback")) return { cls: "status-locked", label: "FALLBACK" };
     if (s.includes("live")) return { cls: "status-live", label: "LIVE" };
     if (snapshotLocked || s.includes("lock")) return { cls: "status-locked", label: "LOCKED" };
     if (s.includes("final") || s.includes("complete") || s.includes("finish")) {
@@ -50,11 +52,26 @@
     return { cls: "status-scheduled", label: "SCHEDULED" };
   }
 
+  function buildSingleFavoredProbBar(p1Prob, ariaLabel) {
+    const clampedP1 = Math.max(0, Math.min(1, safeNum(p1Prob, 0.5)));
+    const p1Pct = (clampedP1 * 100).toFixed(2);
+    const p2Pct = ((1 - clampedP1) * 100).toFixed(2);
+    const p1Favored = clampedP1 >= 0.5;
+    const leftCls = p1Favored ? "prob-fill-favored" : "prob-fill-underdog";
+    const rightCls = p1Favored ? "prob-fill-underdog" : "prob-fill-favored";
+    return `
+      <div class="prob-track" aria-label="${escapeHtml(ariaLabel)}">
+        <div class="${leftCls}" style="width:${p1Pct}%"></div>
+        <div class="${rightCls}" style="width:${p2Pct}%"></div>
+      </div>
+    `;
+  }
+
   function animateOvrCounter(el, targetOvr) {
     if (!el) return;
-    const goal = Math.max(0, Math.min(99, Math.round(safeNum(targetOvr, 50))));
-    const start = Math.max(40, goal - 18);
-    const duration = 420;
+    const goal = Math.max(40, Math.min(99, Math.round(safeNum(targetOvr, 50))));
+    const start = Math.max(40, goal - 16);
+    const duration = 380;
     const t0 = performance.now();
 
     function step(now) {
@@ -84,7 +101,7 @@
     container.classList.toggle("is-upset", !accurate);
 
     const verdictCls = accurate ? "verdict-accurate" : "verdict-upset";
-    const verdictText = accurate ? "PREDICTION ACCURATE" : "UPSET / DIVERGENT";
+    const verdictText = accurate ? "PREDICTION ACCURATE" : "UPSET";
     const winner = escapeHtml(data.actual_winner || "Unknown");
     const score = escapeHtml(data.score_str ?? "Score N/A");
     const dateStr = escapeHtml(data.date_str || "N/A");
@@ -96,27 +113,24 @@
       const bmP1 = Math.max(0, Math.min(1, data.bm_prob));
       const bmP2 = 1 - bmP1;
       bmHtml = `
-        <div class="split-bar-group">
-          <div class="split-bar-labels">
-            <span>MARKET IMPLIED BASELINE &bull; ${escapeHtml(data.p1)}: <strong>${formatPct(bmP1)}</strong></span>
-            <span>${escapeHtml(data.p2)}: <strong>${formatPct(bmP2)}</strong></span>
+        <div class="model-bar-row">
+          <div class="model-bar-title">
+            <span>MARKET IMPLIED CLOSING &bull; <span class="player-name-nowrap">${escapeHtml(data.p1)}</span>: <strong class="metric-tabular ${bmP1 >= 0.5 ? "inline-pink" : ""}">${formatPct(bmP1)}</strong></span>
+            <span><span class="player-name-nowrap">${escapeHtml(data.p2)}</span>: <strong class="metric-tabular ${bmP2 > 0.5 ? "inline-pink" : ""}">${formatPct(bmP2)}</strong></span>
           </div>
-          <div class="split-bar-track" aria-label="Market Implied Probability">
-            <div class="split-bar-fill-p1" style="width:${(bmP1 * 100).toFixed(2)}%"></div>
-            <div class="split-bar-fill-p2" style="width:${(bmP2 * 100).toFixed(2)}%"></div>
-          </div>
+          ${buildSingleFavoredProbBar(bmP1, "Bookmaker Implied Probability")}
         </div>
       `;
     }
 
     container.innerHTML = `
       <div class="hist-banner-top">
-        <span class="hist-verdict-badge ${verdictCls}">${verdictText}</span>
+        <span class="badge ${verdictCls}">${verdictText}</span>
         <div class="hist-match-facts">
           <span>EVENT: <strong>${tournament}</strong> (${roundName})</span>
-          <span>DATE: <strong>${dateStr}</strong></span>
-          <span>WINNER: <strong>${winner}</strong></span>
-          <span>SCORE: <strong>${score}</strong></span>
+          <span>DATE: <strong class="metric-tabular">${dateStr}</strong></span>
+          <span>WINNER: <strong class="player-name-nowrap">${winner}</strong></span>
+          <span>SCORE: <strong class="metric-tabular">${score}</strong></span>
         </div>
       </div>
       ${bmHtml}
@@ -127,9 +141,12 @@
     if (!container || !data) return;
     const p1Prob = Math.max(0, Math.min(1, safeNum(data.prob_lgb, 0.5)));
     const p2Prob = 1 - p1Prob;
+    const p1Favored = p1Prob >= 0.5;
     const surfCls = surfaceBadgeClass(data.surface);
     const symScore = safeNum(data.sym_score, 0).toFixed(6);
     const rawAsym = safeNum(data.raw_asym, 0).toFixed(4);
+    const divPct = (safeNum(data.div_delta, 0) * 100).toFixed(1);
+    const isDivergent = Boolean(data.is_divergent || safeNum(data.div_delta, 0) > 0.15);
     const coldStart = data.p1_known === false || data.p2_known === false;
     const coldLabel =
       data.p1_known === false && data.p2_known === false
@@ -138,34 +155,59 @@
           ? "COLD START (P1)"
           : "COLD START (P2)";
 
+    let evBadge = `<span class="badge badge-neutral">Model Only &bull; No Market Odds</span>`;
+    if (data.edge) {
+      const sig = String(data.edge.signal || "");
+      const e1 = safeNum(data.edge.edge_p1, 0);
+      const e2 = safeNum(data.edge.edge_p2, 0);
+      if (sig === "VALUE_P1") {
+        evBadge = `<span class="badge badge-ev">+${(e1 * 100).toFixed(1)}% EV (${escapeHtml(data.p1)})</span>`;
+      } else if (sig === "VALUE_P2") {
+        evBadge = `<span class="badge badge-ev">+${(e2 * 100).toFixed(1)}% EV (${escapeHtml(data.p2)})</span>`;
+      } else if (sig === "NEGATIVE") {
+        const favEdge = p1Favored ? e1 : e2;
+        evBadge = `<span class="badge badge-fade">${(favEdge * 100).toFixed(1)}% Market Fade</span>`;
+      } else {
+        const favEdge = p1Favored ? e1 : e2;
+        evBadge = `<span class="badge badge-neutral metric-tabular">${favEdge >= 0 ? "+" : ""}${(favEdge * 100).toFixed(1)}% Fair Line</span>`;
+      }
+    }
+
+    const divBadge = isDivergent
+      ? `<span class="divergent-badge">DIVERGENT &gt;15% (${divPct}%)</span>`
+      : `<span class="badge badge-neutral metric-tabular">CONSENSUS (&Delta; ${divPct}%)</span>`;
+
     container.innerHTML = `
-      <div class="banner-side left">
-        <span class="banner-player-tag">PLAYER 1 &bull; CYAN</span>
-        <div class="banner-player-name">${escapeHtml(data.p1)}</div>
-        <div class="banner-win-prob">${formatPct(p1Prob)}</div>
-      </div>
-
-      <div class="banner-center">
-        <span class="vs-emblem">VS</span>
-        <div class="banner-context-pills">
-          <span class="surface-badge ${surfCls}">${escapeHtml(data.surface)}</span>
-          <span class="series-badge">${escapeHtml(data.series)}</span>
-          ${coldStart ? `<span class="cold-start-badge">${escapeHtml(coldLabel)}</span>` : ""}
-        </div>
-        <div id="symmetryChip" data-testid="symmetry-chip" class="symmetry-chip" title="Raw asymmetry before dual-pass averaging: ${rawAsym}">
+      <div class="verdict-meta-row">
+        <span class="surface-badge ${surfCls}">${escapeHtml(data.surface)} Court</span>
+        <span class="series-badge">${escapeHtml(data.series)}</span>
+        ${evBadge}
+        ${divBadge}
+        ${coldStart ? `<span class="cold-start-badge">${escapeHtml(coldLabel)}</span>` : ""}
+        <span id="symmetryChip" data-testid="symmetry-chip" class="symmetry-chip" title="Raw asymmetry before dual-pass averaging: ${rawAsym}">
           SYM &Delta; ${symScore} &bull; VERIFIED
-        </div>
+        </span>
       </div>
 
-      <div class="banner-side right">
-        <span class="banner-player-tag">PLAYER 2 &bull; MAGENTA</span>
-        <div class="banner-player-name">${escapeHtml(data.p2)}</div>
-        <div class="banner-win-prob">${formatPct(p2Prob)}</div>
+      <div class="h2h-players-row">
+        <div class="banner-side left ${p1Favored ? "is-favored" : ""}">
+          <span class="banner-player-tag">PLAYER 1 &bull; ${p1Favored ? "FAVORED" : "UNDERDOG"}</span>
+          <div class="banner-player-name player-name-nowrap">${escapeHtml(data.p1)}</div>
+          <div class="banner-win-prob" data-prob="p1">${formatPct(p1Prob)}</div>
+        </div>
+
+        <span class="vs-emblem">VS</span>
+
+        <div class="banner-side right ${!p1Favored ? "is-favored" : ""}">
+          <span class="banner-player-tag">PLAYER 2 &bull; ${!p1Favored ? "FAVORED" : "UNDERDOG"}</span>
+          <div class="banner-player-name player-name-nowrap">${escapeHtml(data.p2)}</div>
+          <div class="banner-win-prob" data-prob="p2">${formatPct(p2Prob)}</div>
+        </div>
       </div>
     `;
   }
 
-  function renderSingleTradingCard(el, card, isKnown, sideLabel) {
+  function renderSingleTradingCard(el, card, isKnown, sideLabel, isFavored) {
     if (!el) return;
     const c = card || {};
     const ovr = Math.max(40, Math.min(99, Math.round(safeNum(c.ovr, 50))));
@@ -175,12 +217,9 @@
 
     const traitsHtml = traits.length
       ? traits
-          .map((t) => {
-            const cls = String(t).toUpperCase().includes("COLD") ? "trait-chip trait-cold" : "trait-chip";
-            return `<span class="${cls}">${escapeHtml(t)}</span>`;
-          })
+          .map((t) => `<span class="trait-chip">${escapeHtml(t)}</span>`)
           .join("")
-      : `<span class="trait-chip trait-muted">BASELINE PROFILE</span>`;
+      : `<span class="trait-chip">BASELINE PROFILE</span>`;
 
     const knownBadge =
       isKnown === false ? `<span class="cold-start-badge">COLD START</span>` : "";
@@ -188,14 +227,15 @@
     el.innerHTML = `
       <div class="arcade-card-top">
         <div class="ovr-shield">
-          <span class="ovr-num" data-ovr-target="${ovr}">${ovr}</span>
+          <span class="ovr-num metric-tabular ${isFavored ? "is-favored" : ""}" data-ovr-target="${ovr}">${ovr}</span>
           <span class="ovr-label">OVR</span>
         </div>
         <div class="card-identity">
-          <h3 class="card-player-name">${escapeHtml(c.name || sideLabel)}</h3>
+          <h3 class="card-player-name player-name-nowrap">${escapeHtml(c.name || sideLabel)}</h3>
           <div class="card-rank-line">
-            <span>RANK <strong>#${escapeHtml(rank)}</strong></span>
-            <span>PTS <strong>${escapeHtml(pts.toLocaleString())}</strong></span>
+            <span>RANK <strong class="metric-tabular">#${escapeHtml(rank)}</strong></span>
+            <span>PTS <strong class="metric-tabular">${escapeHtml(pts.toLocaleString())}</strong></span>
+            <span>${isFavored ? '<strong class="inline-pink">Favored</strong>' : '<span class="inline-muted">Underdog</span>'}</span>
             ${knownBadge}
           </div>
         </div>
@@ -204,23 +244,23 @@
       <div class="card-stats-grid">
         <div class="card-stat-cell">
           <span class="card-stat-label">SURF WR</span>
-          <strong class="card-stat-val">${formatPct(c.surface_winrate)}</strong>
+          <strong class="card-stat-val metric-tabular">${formatPct(c.surface_winrate)}</strong>
         </div>
         <div class="card-stat-cell">
           <span class="card-stat-label">10M FORM</span>
-          <strong class="card-stat-val">${formatPct(c.short_winrate)}</strong>
+          <strong class="card-stat-val metric-tabular">${formatPct(c.short_winrate)}</strong>
         </div>
         <div class="card-stat-cell">
           <span class="card-stat-label">CAREER</span>
-          <strong class="card-stat-val">${formatPct(c.career_winrate)}</strong>
+          <strong class="card-stat-val metric-tabular">${formatPct(c.career_winrate)}</strong>
         </div>
         <div class="card-stat-cell">
           <span class="card-stat-label">REST</span>
-          <strong class="card-stat-val">${Math.round(safeNum(c.days_since_last, 14))}d</strong>
+          <strong class="card-stat-val metric-tabular">${Math.round(safeNum(c.days_since_last, 14))}d</strong>
         </div>
         <div class="card-stat-cell">
           <span class="card-stat-label">14D LOAD</span>
-          <strong class="card-stat-val">${Math.round(safeNum(c.matches_14d, 0))}M</strong>
+          <strong class="card-stat-val metric-tabular">${Math.round(safeNum(c.matches_14d, 0))}M</strong>
         </div>
       </div>
 
@@ -235,8 +275,9 @@
   function renderTradingCardsDeck(cardP1El, cardP2El, data) {
     if (!data) return;
     const cards = data.player_cards || {};
-    renderSingleTradingCard(cardP1El, cards.p1 || { name: data.p1 }, data.p1_known, data.p1);
-    renderSingleTradingCard(cardP2El, cards.p2 || { name: data.p2 }, data.p2_known, data.p2);
+    const p1Favored = safeNum(data.prob_lgb, 0.5) >= 0.5;
+    renderSingleTradingCard(cardP1El, cards.p1 || { name: data.p1 }, data.p1_known, data.p1, p1Favored);
+    renderSingleTradingCard(cardP2El, cards.p2 || { name: data.p2 }, data.p2_known, data.p2, !p1Favored);
   }
 
   function renderModelProbBars(container, data) {
@@ -250,23 +291,25 @@
       <div class="model-bar-row">
         <div class="model-bar-title">
           <span>LIGHTGBM CHAMPION</span>
-          <span><strong class="fav-p1">${formatPct(lgbP1)}</strong> / <strong class="fav-p2">${formatPct(lgbP2)}</strong></span>
+          <span class="metric-tabular">
+            <strong class="${lgbP1 >= 0.5 ? "inline-pink" : "inline-muted"}">${formatPct(lgbP1)}</strong>
+            /
+            <strong class="${lgbP2 > 0.5 ? "inline-pink" : "inline-muted"}">${formatPct(lgbP2)}</strong>
+          </span>
         </div>
-        <div class="split-bar-track" aria-label="LightGBM win probability split">
-          <div class="split-bar-fill-p1" style="width:${(lgbP1 * 100).toFixed(2)}%"></div>
-          <div class="split-bar-fill-p2" style="width:${(lgbP2 * 100).toFixed(2)}%"></div>
-        </div>
+        ${buildSingleFavoredProbBar(lgbP1, "LightGBM Champion win probability split")}
       </div>
 
       <div class="model-bar-row">
         <div class="model-bar-title">
           <span>LOGREG BASELINE</span>
-          <span><strong class="fav-p1">${formatPct(lrP1)}</strong> / <strong class="fav-p2">${formatPct(lrP2)}</strong></span>
+          <span class="metric-tabular">
+            <strong class="${lrP1 >= 0.5 ? "inline-pink" : "inline-muted"}">${formatPct(lrP1)}</strong>
+            /
+            <strong class="${lrP2 > 0.5 ? "inline-pink" : "inline-muted"}">${formatPct(lrP2)}</strong>
+          </span>
         </div>
-        <div class="split-bar-track" aria-label="Logistic Regression win probability split">
-          <div class="split-bar-fill-lr-p1" style="width:${(lrP1 * 100).toFixed(2)}%"></div>
-          <div class="split-bar-fill-p2" style="width:${(lrP2 * 100).toFixed(2)}%"></div>
-        </div>
+        ${buildSingleFavoredProbBar(lrP1, "Logistic Regression baseline win probability split")}
       </div>
     `;
   }
@@ -277,45 +320,45 @@
     if (!edge) {
       container.innerHTML = `
         <div class="kelly-prompt">
-          Enter Decimal Odds &gt; 1.0 in Matchup Arena to unlock Power-Method De-Vig &amp; Quarter-Kelly sizing
+          Enter Decimal Odds &gt; 1.0 in H2H Arena controls to unlock Power-Method De-Vig &amp; Quarter-Kelly sizing (2.5% cap).
         </div>
       `;
       return;
     }
 
     const signal = String(edge.signal || "ALIGNMENT");
-    let signalCls = "status-scheduled";
-    if (signal === "VALUE_P1" || signal === "VALUE_P2") signalCls = "value-alert-pill";
-    else if (signal === "NEGATIVE") signalCls = "status-live";
+    let signalCls = "badge-neutral";
+    if (signal === "VALUE_P1" || signal === "VALUE_P2") signalCls = "badge-ev";
+    else if (signal === "NEGATIVE") signalCls = "badge-fade";
 
-    const kellyP1 = safeNum(edge.kelly_p1_pct, 0);
-    const kellyP2 = safeNum(edge.kelly_p2_pct, 0);
+    const kellyP1 = Math.min(2.5, Math.max(0, safeNum(edge.kelly_p1_pct, 0)));
+    const kellyP2 = Math.min(2.5, Math.max(0, safeNum(edge.kelly_p2_pct, 0)));
     const maxKelly = Math.max(kellyP1, kellyP2);
     const meterWidth = Math.min(100, (maxKelly / 2.5) * 100);
 
     container.innerHTML = `
       <div class="hist-banner-top">
         <span class="kpi-label">POWER-METHOD DE-VIG &amp; QUARTER-KELLY SIZING</span>
-        <span class="${signalCls}">${escapeHtml(signal)}</span>
+        <span class="badge ${signalCls}">${escapeHtml(signal)}</span>
       </div>
-      <div class="kelly-grid">
-        <div class="kelly-metric">
-          <span>DE-VIG IMPLIED</span>
-          <strong>${formatPct(edge.implied_prob_p1)} / ${formatPct(edge.implied_prob_p2)}</strong>
+      <div class="kelly-strip">
+        <div class="kelly-cell">
+          <span>De-Vig Implied</span>
+          <strong class="metric-tabular">${formatPct(edge.implied_prob_p1)} / ${formatPct(edge.implied_prob_p2)}</strong>
         </div>
-        <div class="kelly-metric">
-          <span>OVERROUND / K</span>
-          <strong>${safeNum(edge.overround, 1).toFixed(3)} / ${safeNum(edge.power_k, 1).toFixed(3)}</strong>
+        <div class="kelly-cell">
+          <span>Overround / k</span>
+          <strong class="metric-tabular">${safeNum(edge.overround, 1).toFixed(3)} / ${safeNum(edge.power_k, 1).toFixed(3)}</strong>
         </div>
-        <div class="kelly-metric">
-          <span>MODEL EDGE (P1 / P2)</span>
-          <strong class="${edge.edge_p1 >= 0.03 || edge.edge_p2 >= 0.03 ? "edge-highlight" : ""}">
+        <div class="kelly-cell">
+          <span>Model Edge (P1/P2)</span>
+          <strong class="metric-tabular ${edge.edge_p1 >= 0.03 || edge.edge_p2 >= 0.03 ? "inline-pink" : ""}">
             ${formatSignedPct(edge.edge_p1)} / ${formatSignedPct(edge.edge_p2)}
           </strong>
         </div>
-        <div class="kelly-metric">
-          <span>1/4 KELLY (CAP 2.5%)</span>
-          <strong class="edge-highlight">${kellyP1.toFixed(2)}% / ${kellyP2.toFixed(2)}%</strong>
+        <div class="kelly-cell">
+          <span>1/4 Kelly (Cap 2.5%)</span>
+          <strong class="metric-tabular ${maxKelly > 0 ? "inline-pink" : ""}">${kellyP1.toFixed(2)}% / ${kellyP2.toFixed(2)}%</strong>
         </div>
       </div>
       <div class="kelly-meter-track" title="Quarter-Kelly stake intensity relative to 2.5% cap">
@@ -334,72 +377,96 @@
     const h2hP1 = Math.round(safeNum(ks.h2h_p1_wins, 0));
     const h2hP2 = Math.round(safeNum(ks.h2h_p2_wins, 0));
 
-    // Negative rank_diff means P1 has a numerically smaller (better) ATP rank
-    const rankFav = rankDiff < 0 ? "fav-p1" : rankDiff > 0 ? "fav-p2" : "fav-neutral";
+    const p1Favored = safeNum(data.prob_lgb, 0.5) >= 0.5;
+    const favorsColor = (favorsP1) => {
+      if (favorsP1 === null) return "fav-neutral";
+      return favorsP1 === p1Favored ? "fav-favored" : "fav-underdog";
+    };
+
+    const rankFavCls = rankDiff === 0 ? "fav-neutral" : favorsColor(rankDiff < 0);
     const rankSub = rankDiff < 0 ? "Favors P1" : rankDiff > 0 ? "Favors P2" : "Even";
 
-    const surfFav = surfDiff > 0 ? "fav-p1" : surfDiff < 0 ? "fav-p2" : "fav-neutral";
-    const formFav = formDivDiff > 0 ? "fav-p1" : formDivDiff < 0 ? "fav-p2" : "fav-neutral";
-    const loadFav = load14Diff < 0 ? "fav-p1" : load14Diff > 0 ? "fav-p2" : "fav-neutral";
+    const surfFavCls = surfDiff === 0 ? "fav-neutral" : favorsColor(surfDiff > 0);
+    const formFavCls = formDivDiff === 0 ? "fav-neutral" : favorsColor(formDivDiff > 0);
+    const loadFavCls = load14Diff === 0 ? "fav-neutral" : favorsColor(load14Diff < 0);
     const loadSub = load14Diff > 0 ? "P1 heavier load" : load14Diff < 0 ? "P2 heavier load" : "Equal load";
-    const h2hFav = h2hP1 > h2hP2 ? "fav-p1" : h2hP2 > h2hP1 ? "fav-p2" : "fav-neutral";
+    const h2hFavCls = h2hP1 === h2hP2 ? "fav-neutral" : favorsColor(h2hP1 > h2hP2);
 
     container.innerHTML = `
-      <div class="delta-tile">
-        <span class="delta-tile-label">RANK &Delta;</span>
-        <strong class="delta-tile-val ${rankFav}">${rankDiff > 0 ? "+" : ""}${rankDiff.toFixed(0)}</strong>
+      <div class="delta-pill">
+        <span class="delta-tile-label">Rank &Delta; (P1&minus;P2)</span>
+        <strong class="delta-tile-val metric-tabular ${rankFavCls}">${rankDiff > 0 ? "+" : ""}${rankDiff.toFixed(0)}</strong>
         <span class="delta-tile-sub">${rankSub}</span>
       </div>
-      <div class="delta-tile">
-        <span class="delta-tile-label">SURFACE WR &Delta;</span>
-        <strong class="delta-tile-val ${surfFav}">${formatSignedPct(surfDiff)}</strong>
+      <div class="delta-pill">
+        <span class="delta-tile-label">${escapeHtml(data.surface || "Surface")} WR &Delta;</span>
+        <strong class="delta-tile-val metric-tabular ${surfFavCls}">${formatSignedPct(surfDiff)}</strong>
         <span class="delta-tile-sub">Court edge</span>
       </div>
-      <div class="delta-tile">
-        <span class="delta-tile-label">FORM DIV &Delta;</span>
-        <strong class="delta-tile-val ${formFav}">${formatSignedPct(formDivDiff)}</strong>
-        <span class="delta-tile-sub">Short - Career</span>
+      <div class="delta-pill">
+        <span class="delta-tile-label">Form Div &Delta;</span>
+        <strong class="delta-tile-val metric-tabular ${formFavCls}">${formatSignedPct(formDivDiff)}</strong>
+        <span class="delta-tile-sub">Short &minus; Career</span>
       </div>
-      <div class="delta-tile">
-        <span class="delta-tile-label">FATIGUE 14D &Delta;</span>
-        <strong class="delta-tile-val ${loadFav}">${load14Diff > 0 ? "+" : ""}${load14Diff.toFixed(0)}M</strong>
+      <div class="delta-pill">
+        <span class="delta-tile-label">Fatigue 14D &Delta;</span>
+        <strong class="delta-tile-val metric-tabular ${loadFavCls}">${load14Diff > 0 ? "+" : ""}${load14Diff.toFixed(0)}M</strong>
         <span class="delta-tile-sub">${loadSub}</span>
       </div>
-      <div class="delta-tile">
-        <span class="delta-tile-label">H2H RECORD</span>
-        <strong class="delta-tile-val ${h2hFav}">${h2hP1} &ndash; ${h2hP2}</strong>
-        <span class="delta-tile-sub">P1 &ndash; P2</span>
+      <div class="delta-pill">
+        <span class="delta-tile-label">H2H Record</span>
+        <strong class="delta-tile-val metric-tabular ${h2hFavCls}">${h2hP1} &ndash; ${h2hP2}</strong>
+        <span class="delta-tile-sub">P1 &ndash; P2 Count</span>
       </div>
     `;
   }
 
-  function renderScheduleCard(fx) {
+  function renderScheduleCard(fx, index = 0) {
     const statusMeta = getStatusPillMeta(fx.status, fx.snapshot_locked);
     const surfCls = surfaceBadgeClass(fx.surface);
     const lgbP1 = Math.max(0, Math.min(1, safeNum(fx.prob_lgb, 0.5)));
     const lgbP2 = 1 - lgbP1;
     const lrP1 = Math.max(0, Math.min(1, safeNum(fx.prob_lr, 0.5)));
     const lrP2 = 1 - lrP1;
+    const p1Favored = lgbP1 >= 0.5;
 
-    const hasEdge = fx.edge_lgb_p1 !== null && fx.edge_lgb_p1 !== undefined && Math.abs(Number(fx.edge_lgb_p1)) >= 0.03;
-    const edgeStr =
-      fx.edge_lgb_p1 !== null && fx.edge_lgb_p1 !== undefined
-        ? formatSignedPct(fx.edge_lgb_p1)
-        : "—";
+    const favoredName = p1Favored ? fx.p1 : fx.p2;
+    const underdogName = p1Favored ? fx.p2 : fx.p1;
+    const favProb = p1Favored ? lgbP1 : lgbP2;
+    const dogProb = p1Favored ? lgbP2 : lgbP1;
+    const favOdd = p1Favored ? fx.odd_1 : fx.odd_2;
+    const dogOdd = p1Favored ? fx.odd_2 : fx.odd_1;
+
+    const hasEdgeVal = fx.edge_lgb_p1 !== null && fx.edge_lgb_p1 !== undefined;
+    const favEdge = hasEdgeVal ? (p1Favored ? Number(fx.edge_lgb_p1) : -Number(fx.edge_lgb_p1)) : null;
+    const hasValueEdge = favEdge !== null && Math.abs(Number(fx.edge_lgb_p1)) >= 0.03;
+
+    let edgeBadge = `<span class="badge badge-neutral">No Odds</span>`;
+    if (hasEdgeVal) {
+      if (Number(fx.edge_lgb_p1) >= 0.03 || Number(fx.edge_lgb_p1) <= -0.03) {
+        const bestEdge = Math.max(Number(fx.edge_lgb_p1), -Number(fx.edge_lgb_p1));
+        edgeBadge = `<span class="badge badge-ev">+${(bestEdge * 100).toFixed(1)}% EV</span>`;
+      } else if (favEdge <= -0.015) {
+        edgeBadge = `<span class="badge badge-fade">${(favEdge * 100).toFixed(1)}% Fade</span>`;
+      } else {
+        edgeBadge = `<span class="badge badge-neutral metric-tabular">${favEdge >= 0 ? "+" : ""}${(favEdge * 100).toFixed(1)}% Fair</span>`;
+      }
+    }
+
     const kellyStr =
       fx.kelly_p1_pct !== null && fx.kelly_p1_pct !== undefined
-        ? `${safeNum(fx.kelly_p1_pct, 0).toFixed(2)}%`
-        : "—";
-    const bmStr =
-      fx.bm_prob !== null && fx.bm_prob !== undefined
-        ? formatPct(fx.bm_prob)
+        ? `${Math.min(2.5, safeNum(fx.kelly_p1_pct, 0)).toFixed(2)}%`
         : "—";
 
-    const odd1Str = fx.odd_1 !== null && fx.odd_1 !== undefined ? safeNum(fx.odd_1).toFixed(2) : "—";
-    const odd2Str = fx.odd_2 !== null && fx.odd_2 !== undefined ? safeNum(fx.odd_2).toFixed(2) : "—";
+    const favOddStr = favOdd !== null && favOdd !== undefined ? safeNum(favOdd).toFixed(2) : null;
+    const dogOddStr = dogOdd !== null && dogOdd !== undefined ? safeNum(dogOdd).toFixed(2) : null;
+
+    const lrFavProb = p1Favored ? lrP1 : lrP2;
+    const lrDogProb = 1 - lrFavProb;
+    const usePrintPlate = index === 0;
 
     return `
-      <button type="button" class="schedule-card ${hasEdge ? "has-edge" : ""}" data-fixture-id="${escapeHtml(fx.fixture_id)}">
+      <button type="button" class="riso-card ${usePrintPlate ? "print-plate" : ""} schedule-card" data-fixture-id="${escapeHtml(fx.fixture_id)}" aria-label="Open dossier for ${escapeHtml(fx.p1)} vs ${escapeHtml(fx.p2)}">
         <div class="schedule-card-top">
           <div>
             <div class="schedule-meta-title">${escapeHtml(fx.tournament)}</div>
@@ -412,40 +479,26 @@
           <span class="surface-badge ${surfCls}">${escapeHtml(fx.surface)}</span>
           <span class="series-badge">${escapeHtml(fx.series)}</span>
           ${fx.cold_start ? `<span class="cold-start-badge">COLD START</span>` : ""}
-          ${fx.is_divergent ? `<span class="divergent-badge">DIVERGENT &Delta;${(safeNum(fx.div_delta) * 100).toFixed(1)}%</span>` : ""}
-          ${hasEdge ? `<span class="value-alert-pill">VALUE EDGE</span>` : ""}
+          ${fx.is_divergent ? `<span class="divergent-badge">DIVERGENT &gt;15% (&Delta;${(safeNum(fx.div_delta) * 100).toFixed(1)}%)</span>` : ""}
+          ${edgeBadge}
         </div>
 
         <div class="schedule-matchup-box">
           <div class="matchup-player-row">
-            <span class="matchup-player-name p1">${escapeHtml(fx.p1)}</span>
-            <span class="matchup-odds-chip">Odds ${odd1Str} &bull; Imp ${bmStr}</span>
+            <span class="matchup-player-name player-name-nowrap">${escapeHtml(favoredName)}</span>
+            <span class="matchup-odds-chip metric-tabular inline-pink">${formatPct(favProb)}${favOddStr ? ` (Odds ${favOddStr})` : ""}</span>
           </div>
           <div class="matchup-player-row">
-            <span class="matchup-player-name p2">${escapeHtml(fx.p2)}</span>
-            <span class="matchup-odds-chip">Odds ${odd2Str}</span>
+            <span class="matchup-player-name is-underdog player-name-nowrap">${escapeHtml(underdogName)}</span>
+            <span class="matchup-odds-chip metric-tabular inline-muted">${formatPct(dogProb)}${dogOddStr ? ` (Odds ${dogOddStr})` : ""}</span>
           </div>
-        </div>
-
-        <div class="split-bar-group">
-          <div class="split-bar-labels">
-            <span>LGBM: <strong class="fav-p1">${formatPct(lgbP1)}</strong> / <strong class="fav-p2">${formatPct(lgbP2)}</strong></span>
-            <span>LR: ${formatPct(lrP1)} / ${formatPct(lrP2)}</span>
-          </div>
-          <div class="split-bar-track">
-            <div class="split-bar-fill-p1" style="width:${(lgbP1 * 100).toFixed(1)}%"></div>
-            <div class="split-bar-fill-p2" style="width:${(lgbP2 * 100).toFixed(1)}%"></div>
-          </div>
-          <div class="split-bar-track" style="height:5px; opacity:0.85;">
-            <div class="split-bar-fill-lr-p1" style="width:${(lrP1 * 100).toFixed(1)}%"></div>
-            <div class="split-bar-fill-p2" style="width:${(lrP2 * 100).toFixed(1)}%"></div>
-          </div>
+          ${buildSingleFavoredProbBar(favProb, "Win probability split")}
         </div>
 
         <div class="schedule-card-footer">
-          <span>P1 EDGE: <strong class="${hasEdge ? "edge-highlight" : ""}">${edgeStr}</strong></span>
-          <span>1/4 KELLY: <strong class="${hasEdge ? "edge-highlight" : ""}">${kellyStr}</strong></span>
-          <span class="fav-p1">OPEN ARENA &rarr;</span>
+          <span class="metric-tabular">LR Split: ${formatPct(lrFavProb)} / ${formatPct(lrDogProb)}</span>
+          ${hasValueEdge ? `<span>1/4 Kelly: <strong class="metric-tabular inline-pink">${kellyStr}</strong></span>` : ""}
+          <span class="inline-pink">Open Dossier &rarr;</span>
         </div>
       </button>
     `;
